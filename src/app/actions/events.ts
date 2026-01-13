@@ -78,3 +78,28 @@ export async function getEventAttendees(eventId: number) {
 
     return data;
 }
+
+export async function getMemberAttendance(memberId: number) {
+    if (!supabaseAdmin) return [];
+
+    const { data, error } = await supabaseAdmin
+        .from('attendance')
+        .select(`
+            *,
+            events (
+                name,
+                event_date,
+                description,
+                code
+            )
+        `)
+        .eq('member_id', memberId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching member attendance:', error);
+        return [];
+    }
+
+    return data;
+}
