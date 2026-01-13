@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { OpenAI } from 'openai'
 import { parse } from 'csv-parse/sync'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import { getOrganizationByAccessCode, uploadContactsWithDuplicateCheck, formatPhoneNumber } from '@/lib/supabase'
 
 // Define the expected output structure
@@ -44,10 +44,10 @@ Rules:
 export async function POST(request: NextRequest) {
   try {
     console.log('Document parser API called')
-    
+
     // Get access code from cookie
     const accessCode = request.cookies.get('access-code')
-    
+
     if (!accessCode) {
       console.log('No access code found in cookies')
       return NextResponse.json(
@@ -55,10 +55,10 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
-    
+
     // Get organization from database
     const organization = await getOrganizationByAccessCode(accessCode.value)
-    
+
     if (!organization) {
       console.log('No organization found for access code')
       return NextResponse.json(
@@ -66,15 +66,15 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
-    
+
     console.log(`Processing file for organization: ${organization.chapter_name}`)
-    
+
     // Get form data
     const formData = await request.formData()
     const file = formData.get('file') as File
     const uploadToDb = formData.get('uploadToDb') === 'true'
     const selectedSheet = formData.get('selectedSheet') as string
-    
+
     if (!file) {
       console.log('No file provided in form data')
       return NextResponse.json(
@@ -82,67 +82,110 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    
+
     console.log(`File received: ${file.name}, type: ${file.type}, size: ${file.size} bytes`)
-    
+
     // Determine file type
     const fileType = file.type
     let textContent = ''
     let availableSheets: string[] = []
-    
+
     // Process the file based on its type
     if (fileType === 'text/csv' || (file.name && file.name.endsWith('.csv'))) {
       console.log('Processing CSV file')
       const fileText = await file.text()
       console.log(`CSV content preview: ${fileText.substring(0, 200)}...`)
-      
+
       const records = parse(fileText, {
         columns: true,
         skip_empty_lines: true,
         trim: true
       })
-      
+
       console.log(`CSV parsed successfully. Found ${records.length} records`)
       console.log('CSV columns:', Object.keys(records[0] || {}))
-      
+
       textContent = JSON.stringify(records, null, 2)
       availableSheets = ['Sheet1'] // CSV files only have one sheet
-    } else if (fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
-               fileType === 'application/vnd.ms-excel' || 
-               (file.name && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')))) {
-      // Handle Excel files
+    } else if (fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      (file.name && file.name.endsWith('.xlsx'))) {
+      // Handle Excel files (.xlsx only)
       console.log('Processing Excel file')
       const buffer = await file.arrayBuffer()
-      const workbook = XLSX.read(buffer, { type: 'buffer' })
-      
+      const workbook = new ExcelJS.Workbook()
+      await workbook.xlsx.load(buffer)
+
       // Get all sheet names
-      availableSheets = workbook.SheetNames
+      availableSheets = workbook.worksheets.map(sheet => sheet.name)
       console.log(`Available sheets: ${availableSheets.join(', ')}`)
-      
+
       // If no sheet is selected, return the available sheets
       if (!selectedSheet) {
         console.log('No sheet selected, returning available sheets')
-        return NextResponse.json({ 
+        return NextResponse.json({
           success: true,
           availableSheets,
           contacts: [],
           uploadedToDb: false
         })
       }
-      
+
       // Get the selected sheet
-      const worksheet = workbook.Sheets[selectedSheet]
+      const worksheet = workbook.getWorksheet(selectedSheet)
       console.log(`Selected sheet: ${selectedSheet}`)
-      
+
+      if (!worksheet) {
+        return NextResponse.json(
+          { error: `Sheet "${selectedSheet}" not found` },
+          { status: 400 }
+        )
+      }
+
       // Convert to JSON
-      const data = XLSX.utils.sheet_to_json(worksheet)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: Record<string, any>[] = []
+      const headers: Record<number, string> = {}
+
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) {
+          row.eachCell((cell, colNumber) => {
+            headers[colNumber] = cell.value?.toString() || ''
+          })
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rowData: Record<string, any> = {}
+          row.eachCell((cell, colNumber) => {
+            const header = headers[colNumber]
+            if (header) {
+              let value = cell.value
+              // Handle rich text, hyperlinks, formulas
+              if (value && typeof value === 'object') {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const valObj = value as any;
+                if ('text' in valObj) value = valObj.text
+                else if ('result' in valObj) value = valObj.result
+              }
+              rowData[header] = value
+            }
+          })
+          if (Object.keys(rowData).length > 0) {
+            data.push(rowData)
+          }
+        }
+      })
+
       console.log(`Excel parsed successfully. Found ${data.length} records`)
-      
+
       if (data.length > 0) {
         console.log('Excel columns:', Object.keys(data[0] || {}))
       }
-      
+
       textContent = JSON.stringify(data, null, 2)
+    } else if (file.name && file.name.endsWith('.xls')) {
+      return NextResponse.json(
+        { error: 'Legacy Excel files (.xls) are no longer supported. Please save as .xlsx and try again.' },
+        { status: 400 }
+      )
     } else if (fileType === 'text/plain' || (file.name && file.name.endsWith('.txt'))) {
       console.log('Processing text file')
       textContent = await file.text()
@@ -155,23 +198,23 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    
+
     // If no text content or no selected sheet for Excel, return available sheets
     if (!textContent || (fileType.includes('excel') && !selectedSheet)) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: true,
         availableSheets,
         contacts: [],
         uploadedToDb: false
       })
     }
-    
+
     console.log('Preparing to call OpenAI for parsing')
-    
+
     const client = new OpenAI({
       apiKey: process.env['OPENAI_API_KEY'],
     });
-      
+
     // Call OpenAI to parse the text
     console.log('Calling OpenAI API')
     const completion = await client.chat.completions.create({
@@ -182,15 +225,15 @@ export async function POST(request: NextRequest) {
       ],
       response_format: { type: "json_object" }
     })
-    
+
     console.log('OpenAI API response received')
-    
+
     const raw = completion.choices[0].message.content
     console.log(`OpenAI response preview: ${raw?.substring(0, 200)}...`)
-    
+
     let parsedResponse: { contacts?: Contact[] } | Contact[] | Record<string, unknown>
     let contacts: Contact[] = []
-    
+
     try {
       parsedResponse = JSON.parse(raw || '{}')
       // Check if the response has a "contacts" property, otherwise treat the response as the contacts array
@@ -204,7 +247,7 @@ export async function POST(request: NextRequest) {
     } catch (parseError) {
       console.error('Failed to parse OpenAI response as JSON:', parseError)
       console.error('Raw OpenAI response:', raw)
-      
+
       // Try to extract any potential JSON from the response
       if (raw) {
         const jsonMatch = raw.match(/\[[\s\S]*\]|\{[\s\S]*\}/)
@@ -226,7 +269,7 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      
+
       // If we still don't have contacts, return an error
       if (contacts.length === 0) {
         return NextResponse.json(
@@ -235,13 +278,13 @@ export async function POST(request: NextRequest) {
         )
       }
     }
-    
+
     console.log(`Parsed ${contacts.length} contacts from the file`)
-    
+
     if (contacts.length > 0) {
       console.log('Sample contact:', contacts[0])
     }
-    
+
     // Process the parsed contacts for display and ensure phone numbers are properly formatted
     const processedContacts = contacts.map(contact => {
       return {
@@ -256,7 +299,7 @@ export async function POST(request: NextRequest) {
     if (processedContacts.length > 0) {
       console.log('Sample contact after processing:', processedContacts[0]);
     }
-    
+
     // If requested, upload contacts to the database
     if (uploadToDb && processedContacts.length > 0) {
       console.log('Uploading contacts to database')
@@ -267,16 +310,16 @@ export async function POST(request: NextRequest) {
           phone: contact.phone_number,
           email: contact.email || ''
         }))
-        
+
         // Get upload preview first
         const result = await uploadContactsWithDuplicateCheck(
           organization.id.toString(),
           formattedContacts,
           false // Actually upload the contacts
         )
-        
+
         console.log(`Successfully uploaded ${result.uploaded} contacts, skipped ${result.skipped} existing contacts, flagged ${result.flagged} contacts`)
-        
+
         return NextResponse.json({
           success: true,
           availableSheets,
@@ -296,7 +339,7 @@ export async function POST(request: NextRequest) {
         // Continue with returning the contacts without database upload success
       }
     }
-    
+
     // After the uploadToDb block, return the parsed contacts if we didn't upload to DB
     return NextResponse.json({
       success: true,
