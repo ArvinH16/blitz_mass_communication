@@ -31,6 +31,7 @@ import {
 import OrgQrCode from '@/components/ui/OrgQrCode'
 import { encodeOrgSlug } from '@/lib/orgSlug'
 import { MemberProfileDialog } from "@/components/MemberProfileDialog"
+import { EventsTab } from "@/components/EventsTab"
 
 interface Contact {
   name: string
@@ -117,7 +118,7 @@ export default function MassTextPage() {
   const [editingFlaggedContact, setEditingFlaggedContact] = useState<Contact | null>(null)
   const [contactsToAddAnyway, setContactsToAddAnyway] = useState<Contact[]>([])
   const [showFlaggedContactsDialog, setShowFlaggedContactsDialog] = useState(false)
-  const [viewMode, setViewMode] = useState<'mass-text' | 'contacts-management'>('mass-text')
+  const [viewMode, setViewMode] = useState<'mass-text' | 'contacts-management' | 'events'>('mass-text')
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deletingContactId, setDeletingContactId] = useState<number | null>(null)
@@ -1087,8 +1088,8 @@ export default function MassTextPage() {
             All Members
           </button>
           <button
-            className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 transition-colors"
-            onClick={() => router.push('/events')}
+            className={`flex-1 py-2 ${viewMode === 'events' ? 'bg-primary text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+            onClick={() => setViewMode('events')}
           >
             Events
           </button>
@@ -1299,7 +1300,13 @@ export default function MassTextPage() {
                               {contacts.map((contact, index) => (
                                 <tr
                                   key={index}
-                                  className={`border-b ${contact.opted_out ? 'bg-yellow-50' : ''}`}
+                                  className={`border-b ${contact.opted_out ? 'bg-yellow-50' : ''} ${contact.id ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
+                                  onClick={() => {
+                                    if (contact.id) {
+                                      setSelectedMember(contact)
+                                      setShowProfileDialog(true)
+                                    }
+                                  }}
                                 >
                                   <td className="py-2 px-2">{contact.name}</td>
                                   <td className="py-2 px-2">
@@ -1323,7 +1330,8 @@ export default function MassTextPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => {
+                                      onClick={(e) => {
+                                        e.stopPropagation()
                                         if (contact.id) {
                                           setSelectedMember(contact)
                                           setShowProfileDialog(true)
@@ -1338,7 +1346,10 @@ export default function MassTextPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => handleDeleteContact(index)}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDeleteContact(index)
+                                      }}
                                     >
                                       Delete
                                     </Button>
@@ -1567,6 +1578,8 @@ export default function MassTextPage() {
               </CardContent>
             </Card>
           </div>
+        ) : viewMode === 'events' ? (
+          <EventsTab orgInfo={orgInfo} />
         ) : (
           // Contacts management view
           <>
