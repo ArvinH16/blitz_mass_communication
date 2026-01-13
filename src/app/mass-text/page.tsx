@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { AlertCircle, CheckCircle2, Upload as UploadIcon, ChevronDown, ChevronUp, RefreshCw, Mail, Database, MessageSquare, PlusCircle as PlusCircleIcon, Info as InfoIcon, XCircle as XCircleIcon, Pencil as PencilIcon, Trash as TrashIcon, AlertTriangle as AlertTriangleIcon, Sparkles } from "lucide-react"
+import { AlertCircle, CheckCircle2, Upload as UploadIcon, ChevronDown, ChevronUp, RefreshCw, Mail, Database, MessageSquare, PlusCircle as PlusCircleIcon, Info as InfoIcon, XCircle as XCircleIcon, Pencil as PencilIcon, Trash as TrashIcon, AlertTriangle as AlertTriangleIcon, Sparkles, Eye } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import AnimatedBackground from "@/components/AnimatedBackground"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/tooltip"
 import OrgQrCode from '@/components/ui/OrgQrCode'
 import { encodeOrgSlug } from '@/lib/orgSlug'
+import { MemberProfileDialog } from "@/components/MemberProfileDialog"
+import { EventsTab } from "@/components/EventsTab"
 
 interface Contact {
   name: string
@@ -116,7 +118,7 @@ export default function MassTextPage() {
   const [editingFlaggedContact, setEditingFlaggedContact] = useState<Contact | null>(null)
   const [contactsToAddAnyway, setContactsToAddAnyway] = useState<Contact[]>([])
   const [showFlaggedContactsDialog, setShowFlaggedContactsDialog] = useState(false)
-  const [viewMode, setViewMode] = useState<'mass-text' | 'contacts-management'>('mass-text')
+  const [viewMode, setViewMode] = useState<'mass-text' | 'contacts-management' | 'events'>('mass-text')
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deletingContactId, setDeletingContactId] = useState<number | null>(null)
@@ -128,6 +130,8 @@ export default function MassTextPage() {
   const [showBeautifyDialog, setShowBeautifyDialog] = useState(false)
   const [beautifiedHtmlContent, setBeautifiedHtmlContent] = useState<string>('')
   const [isBeautifiedEmail, setIsBeautifiedEmail] = useState(false)
+  const [selectedMember, setSelectedMember] = useState<Contact | null>(null)
+  const [showProfileDialog, setShowProfileDialog] = useState(false)
 
   // Add authentication check and fetch org info
   useEffect(() => {
@@ -137,7 +141,7 @@ export default function MassTextPage() {
           method: 'GET',
           credentials: 'include',
         });
-        
+
         if (!response.ok) {
           router.push('/');
           return;
@@ -174,7 +178,7 @@ export default function MassTextPage() {
           const limitData = await limitResponse.json()
           setMessageLimitData(limitData)
         }
-        
+
         // Fetch email limit data
         const emailLimitResponse = await fetch('/api/email-sender')
         if (!emailLimitResponse.ok) {
@@ -184,7 +188,7 @@ export default function MassTextPage() {
           const emailLimitData = await emailLimitResponse.json()
           setEmailLimitData(emailLimitData)
         }
-        
+
         // Fetch contacts from Supabase
         await fetchContactsFromSupabase()
       } catch (error) {
@@ -201,17 +205,17 @@ export default function MassTextPage() {
   const fetchContactsFromSupabase = async () => {
     setLoadingContacts(true)
     setError(null)
-    
+
     try {
       const response = await fetch('/api/fetch-contacts')
-      
+
       if (!response.ok) {
         const data = await response.json()
         throw new Error(data.message || 'Failed to fetch contacts from database')
       }
-      
+
       const data = await response.json()
-      
+
       if (!data.contacts || data.contacts.length === 0) {
         setContacts([])
         setOriginalContacts([])
@@ -219,7 +223,7 @@ export default function MassTextPage() {
         // Don't set an error message, just show a normal state
         return
       }
-      
+
       setContacts(data.contacts)
       setOriginalContacts(data.contacts)
       setFileName("Database: Organization Members")
@@ -247,14 +251,14 @@ export default function MassTextPage() {
     setShowSheetSelector(false)
     setUploadedFile(file)
     setTempUploadToDb(uploadToDb) // Remember user's choice for upload to database
-    
+
     // Start progress animation for file upload
     setPreviewLoadingProgress(0)
     const duration = 40000 // 40 seconds
     const interval = 200 // Update every 200ms
     const steps = duration / interval
     const incrementPerStep = 95 / steps // Go to 95% to leave room at the end
-    
+
     const progressInterval = setInterval(() => {
       setPreviewLoadingProgress(current => {
         // Cap at 95% to indicate we're still waiting
@@ -276,7 +280,7 @@ export default function MassTextPage() {
       })
 
       console.log(`API response status: ${response.status}`)
-      
+
       // Complete the progress bar after receiving response
       clearInterval(progressInterval)
       setPreviewLoadingProgress(100)
@@ -284,7 +288,7 @@ export default function MassTextPage() {
       setTimeout(() => {
         setPreviewLoadingProgress(0)
       }, 500)
-      
+
       if (!response.ok) {
         const data = await response.json()
         console.error('API error response:', data)
@@ -293,7 +297,7 @@ export default function MassTextPage() {
 
       const data = await response.json()
       console.log('API response data:', data)
-      
+
       // Check if the API returned available sheets
       if (data.availableSheets && data.availableSheets.length > 0) {
         console.log(`File contains ${data.availableSheets.length} sheets: ${data.availableSheets.join(', ')}`)
@@ -302,27 +306,27 @@ export default function MassTextPage() {
         setUploadingFile(false)
         return
       }
-      
+
       if (!data.contacts || data.contacts.length === 0) {
         console.error('No contacts found in the parsed data')
         setError('No valid contacts found in the file. The application tried to automatically match columns in your file, but couldn&apos;t find contact information. Please check that your file contains columns with names, phone numbers, or emails. You can try renaming your columns to include terms like "name", "phone", or "email" to help the system identify them.')
         setContacts([])
         return
       }
-      
+
       console.log(`Successfully parsed ${data.contacts.length} contacts from the file`)
-      
+
       // Convert the contacts to the format expected by the UI
       const formattedContacts = data.contacts.map((contact: ParsedContact) => ({
         name: `${contact.first_name} ${contact.last_name}`.trim() || 'Unknown',
         phone: contact.phone_number,
         email: contact.email || ''
       }))
-      
+
       console.log('Formatted contacts for UI:', formattedContacts)
       setContacts(formattedContacts)
       setShowContactsList(true) // Automatically show the contacts list after upload
-      
+
       // If user had selected to upload to database, automatically show preview
       if (tempUploadToDb) {
         setTimeout(() => handlePreviewContacts(), 500)
@@ -338,64 +342,64 @@ export default function MassTextPage() {
 
   const handleSheetSelection = async (sheet: string) => {
     if (!uploadedFile) return
-    
+
     setSelectedSheet(sheet)
     setUploadingFile(true)
     setError(null)
-    
+
     // Start progress animation for sheet processing
     setPreviewLoadingProgress(0)
     const duration = 40000 // 40 seconds
     const interval = 200 // Update every 200ms
     const steps = duration / interval
     const incrementPerStep = 95 / steps // Go to 95% to leave room at the end
-    
+
     const progressInterval = setInterval(() => {
       setPreviewLoadingProgress(current => {
         // Cap at 95% to indicate we're still waiting
         return current < 95 ? current + incrementPerStep : current;
       });
     }, interval);
-    
+
     try {
       console.log(`Processing sheet: ${sheet}`)
       const formData = new FormData()
       formData.append('file', uploadedFile)
       formData.append('uploadToDb', 'false') // Always load without uploading first
       formData.append('selectedSheet', sheet)
-      
+
       const response = await fetch('/api/document-parser', {
         method: 'POST',
         body: formData
       })
-      
+
       // Complete the progress bar after receiving response
       clearInterval(progressInterval)
       setPreviewLoadingProgress(100)
-      
+
       if (!response.ok) {
         const data = await response.json()
         throw new Error(data.error || 'Failed to parse sheet')
       }
-      
+
       const data = await response.json()
-      
+
       if (!data.contacts || data.contacts.length === 0) {
         setError('No valid contacts found in the selected sheet. Please try another sheet or check the file format.')
         setContacts([])
         return
       }
-      
+
       // Convert the contacts to the format expected by the UI
       const formattedContacts = data.contacts.map((contact: ParsedContact) => ({
         name: `${contact.first_name} ${contact.last_name}`.trim() || 'Unknown',
         phone: contact.phone_number,
         email: contact.email || ''
       }))
-      
+
       setContacts(formattedContacts)
       setShowContactsList(true)
-      
+
       // If user had selected to upload to database, automatically show preview
       if (tempUploadToDb) {
         setTimeout(() => handlePreviewContacts(), 500)
@@ -450,7 +454,7 @@ export default function MassTextPage() {
         setFailed(data.results.totalFailed)
         setFailedNumbers(data.results.failedNumbers)
         setShowResults(true)
-        
+
         // Add a small delay before fetching updated message limit data
         setTimeout(async () => {
           const limitResponse = await fetch('/api/messages')
@@ -503,13 +507,13 @@ export default function MassTextPage() {
       alert("Please enter both name and phone number")
       return
     }
-    
+
     // Check if phone number already exists
     if (contacts.some(contact => contact.phone === newContact.phone)) {
       alert("This phone number already exists in the list")
       return
     }
-    
+
     // If in contacts management mode, add to database
     if (viewMode === 'contacts-management') {
       handleAddContactToDatabase();
@@ -519,39 +523,39 @@ export default function MassTextPage() {
       setIsAddingContact(false)
     }
   }
-  
+
   // Function to add a contact to the database
   const handleAddContactToDatabase = async () => {
     try {
       setError(null);
-      
+
       const response = await fetch('/api/upload-contacts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           contacts: [newContact]
         }),
       });
-      
+
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || 'Failed to add contact');
       }
-      
+
       // Refresh the contacts list
       await fetchContactsFromSupabase();
       setNewContact({ name: "", phone: "", email: "" });
       setIsAddingContact(false);
-      
+
     } catch (error) {
       console.error('Error adding contact:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to add contact';
       setError(errorMessage);
     }
   };
-  
+
   const handleDeleteContact = (index: number) => {
     // If in contacts management mode, delete from database
     if (viewMode === 'contacts-management' && originalContacts[index]?.id) {
@@ -563,28 +567,28 @@ export default function MassTextPage() {
       setContacts(updatedContacts);
     }
   }
-  
+
   // Function to confirm deleting a contact from the database
   const handleConfirmDelete = async () => {
     if (!deletingContactId) return;
-    
+
     try {
       setError(null);
-      
+
       const response = await fetch(`/api/delete-contact?id=${deletingContactId}`, {
         method: 'DELETE',
       });
-      
+
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || 'Failed to delete contact');
       }
-      
+
       // Refresh the contacts list
       await fetchContactsFromSupabase();
       setIsDeleting(false);
       setDeletingContactId(null);
-      
+
     } catch (error) {
       console.error('Error deleting contact:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete contact';
@@ -593,23 +597,23 @@ export default function MassTextPage() {
       setDeletingContactId(null);
     }
   };
-  
+
   // Function to handle editing a contact
   const handleEditContact = (contact: Contact) => {
     setEditingContact(contact);
   };
-  
+
   // Function to save edited contact
   const handleSaveContact = async () => {
     if (!editingContact || !editingContact.id) return;
-    
+
     try {
       setError(null);
-      
+
       const nameParts = editingContact.name.split(' ');
       const first_name = nameParts[0] || '';
       const last_name = nameParts.slice(1).join(' ') || '';
-      
+
       const response = await fetch('/api/update-contact', {
         method: 'PUT',
         headers: {
@@ -623,16 +627,16 @@ export default function MassTextPage() {
           phone_number: editingContact.phone
         }),
       });
-      
+
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || 'Failed to update contact');
       }
-      
+
       // Refresh the contacts list
       await fetchContactsFromSupabase();
       setEditingContact(null);
-      
+
     } catch (error) {
       console.error('Error updating contact:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update contact';
@@ -705,7 +709,7 @@ export default function MassTextPage() {
 
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (done) {
           break;
         }
@@ -717,20 +721,20 @@ export default function MassTextPage() {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
-              
+
               if (data.status === 'error') {
                 throw new Error(data.message);
               }
-              
+
               setEmailProgress(data);
-              
+
               if (data.status === 'completed') {
                 setEmailResults({
                   sent: data.sent,
                   failed: data.failed,
                   errors: [] // Errors are handled in the progress updates
                 });
-                
+
                 // Refresh email limit data
                 try {
                   const emailLimitResponse = await fetch('/api/email-sender')
@@ -751,11 +755,11 @@ export default function MassTextPage() {
     } catch (error: unknown) {
       console.error('Error sending emails:', error)
       let errorMessage = 'An error occurred while sending emails'
-      
+
       if (error instanceof Error) {
         errorMessage = error.message
       }
-      
+
       setEmailError(errorMessage)
     } finally {
       setSendingEmails(false)
@@ -767,27 +771,27 @@ export default function MassTextPage() {
       alert("Please upload contacts first");
       return;
     }
-    
+
     // If contacts are not being saved to DB, show warning
     if (!uploadSuccess && !uploadToDb) {
       setShowTempContactWarning(true)
       setConfirmationType(type);
       return;
     }
-    
+
     setConfirmationType(type);
     setShowConfirmationDialog(true);
   }
 
   const handleConfirmSend = () => {
     setShowConfirmationDialog(false)
-    
+
     if (confirmationType === 'text') {
       handleSend()
     } else if (confirmationType === 'email') {
       handleSendEmails()
     }
-    
+
     setConfirmationType(null)
   }
 
@@ -797,25 +801,25 @@ export default function MassTextPage() {
       alert("Please upload contacts first");
       return;
     }
-    
+
     try {
       setPreviewLoading(true);
       setPreviewLoadingProgress(0);
       setError(null);
-      
+
       // Fixed duration progress animation (40 seconds)
       const duration = 40000; // 40 seconds
       const interval = 200; // Update every 200ms
       const steps = duration / interval;
       const incrementPerStep = 95 / steps; // Go to 95% to leave room at the end
-      
+
       const progressInterval = setInterval(() => {
         setPreviewLoadingProgress(current => {
           // Cap at 95% to indicate we're still waiting
           return current < 95 ? current + incrementPerStep : current;
         });
       }, interval);
-      
+
       const response = await fetch('/api/preview-contacts', {
         method: 'POST',
         headers: {
@@ -823,17 +827,17 @@ export default function MassTextPage() {
         },
         body: JSON.stringify({ contacts }),
       });
-      
+
       // Clear the progress interval and complete the progress bar
       clearInterval(progressInterval);
       setPreviewLoadingProgress(100);
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.message || 'Failed to preview contacts');
       }
-      
+
       setPreviewData({
         newContacts: data.newContacts || [],
         existingContacts: data.existingContacts || [],
@@ -875,7 +879,7 @@ export default function MassTextPage() {
   // Add a function to handle removing all flagged contacts from the "add anyway" list
   const handleRemoveAllFlaggedContacts = () => {
     if (previewData?.flaggedContacts) {
-      setContactsToAddAnyway(prev => 
+      setContactsToAddAnyway(prev =>
         prev.filter(contact => !previewData.flaggedContacts.includes(contact))
       );
     }
@@ -887,7 +891,7 @@ export default function MassTextPage() {
       setShowPreviewModal(false);
       return;
     }
-    
+
     // If there are flagged contacts that aren't being added anyway, show the confirmation dialog
     const remainingFlaggedContacts = previewData.flaggedContacts?.filter(
       contact => !contactsToAddAnyway.includes(contact)
@@ -901,7 +905,7 @@ export default function MassTextPage() {
     try {
       setUploadingFile(true);
       setError(null);
-      
+
       // Combine new contacts with contacts to add anyway
       const contactsToUpload = [
         ...previewData.newContacts,
@@ -912,7 +916,7 @@ export default function MassTextPage() {
       if (contactsToUpload.length === 0) {
         throw new Error('No valid contacts to upload');
       }
-      
+
       const response = await fetch('/api/upload-contacts', {
         method: 'POST',
         headers: {
@@ -920,16 +924,16 @@ export default function MassTextPage() {
         },
         body: JSON.stringify({ contacts: contactsToUpload }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.message || 'Failed to upload contacts');
       }
-      
+
       setUploadSuccess(true);
       setContactsToAddAnyway([]);
-      
+
       setTimeout(() => setUploadSuccess(false), 5000);
       setShowPreviewModal(false);
     } catch (error) {
@@ -944,7 +948,7 @@ export default function MassTextPage() {
   // Add a function to handle the flagged contacts confirmation
   const handleFlaggedContactsConfirmation = async (proceed: boolean) => {
     setShowFlaggedContactsDialog(false);
-    
+
     if (proceed) {
       await handleUploadAfterPreview();
     }
@@ -963,25 +967,25 @@ export default function MassTextPage() {
   // Function to save edited flagged contact
   const handleSaveFlaggedContact = () => {
     if (!editingFlaggedContact || !previewData) return;
-    
+
     // Find the index of the contact in the flagged contacts array
     const index = previewData.flaggedContacts.findIndex(
       c => c.phone === editingFlaggedContact.phone && c.name === editingFlaggedContact.name
     );
-    
+
     if (index === -1) return;
-    
+
     const updatedFlaggedContacts = [...previewData.flaggedContacts];
-    
+
     // If phone number is now valid, move to new contacts
     const phoneNumber = editingFlaggedContact.phone?.trim() || '';
     if (phoneNumber && phoneNumber.replace(/\D/g, '').length >= 10) {
       // Remove from flagged contacts
       updatedFlaggedContacts.splice(index, 1);
-      
+
       // Add to new contacts
       const updatedNewContacts = [...previewData.newContacts, editingFlaggedContact];
-      
+
       // Update preview data
       setPreviewData({
         ...previewData,
@@ -991,13 +995,13 @@ export default function MassTextPage() {
     } else {
       // Just update the contact in place if still invalid
       updatedFlaggedContacts[index] = editingFlaggedContact;
-      
+
       setPreviewData({
         ...previewData,
         flaggedContacts: updatedFlaggedContacts
       });
     }
-    
+
     setEditingFlaggedContact(null);
   };
 
@@ -1005,7 +1009,7 @@ export default function MassTextPage() {
   const handleToggleOptOut = async (contactId: number, currentStatus: boolean) => {
     try {
       setError(null);
-      
+
       const response = await fetch('/api/toggle-opt-out', {
         method: 'POST',
         headers: {
@@ -1016,15 +1020,15 @@ export default function MassTextPage() {
           optedOut: !currentStatus
         }),
       });
-      
+
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || 'Failed to update opt-out status');
       }
-      
+
       // Refresh the contacts list
       await fetchContactsFromSupabase();
-      
+
     } catch (error) {
       console.error('Error toggling opt-out status:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update opt-out status';
@@ -1038,8 +1042,8 @@ export default function MassTextPage() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Mass Communication</h1>
           <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => router.push('/sent-messages')}
               className="flex items-center space-x-2"
             >
@@ -1068,13 +1072,13 @@ export default function MassTextPage() {
         )}
         <div className="flex mb-6 border rounded-lg overflow-hidden">
           <button
-            className={`flex-1 py-2 ${viewMode === 'mass-text' ? 'bg-primary text-white' : 'bg-gray-100'}`}
+            className={`flex-1 py-2 ${viewMode === 'mass-text' ? 'bg-primary text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
             onClick={() => setViewMode('mass-text')}
           >
             Mass Text & Email
           </button>
           <button
-            className={`flex-1 py-2 ${viewMode === 'contacts-management' ? 'bg-primary text-white' : 'bg-gray-100'}`}
+            className={`flex-1 py-2 ${viewMode === 'contacts-management' ? 'bg-primary text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
             onClick={() => {
               setViewMode('contacts-management')
               setShowContactsList(true)
@@ -1083,8 +1087,14 @@ export default function MassTextPage() {
           >
             All Members
           </button>
+          <button
+            className={`flex-1 py-2 ${viewMode === 'events' ? 'bg-primary text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
+            onClick={() => setViewMode('events')}
+          >
+            Events
+          </button>
         </div>
-        
+
         {viewMode === 'mass-text' ? (
           // Mass text view
           <div className="space-y-6">
@@ -1288,9 +1298,15 @@ export default function MassTextPage() {
                             </thead>
                             <tbody>
                               {contacts.map((contact, index) => (
-                                <tr 
-                                  key={index} 
-                                  className={`border-b ${contact.opted_out ? 'bg-yellow-50' : ''}`}
+                                <tr
+                                  key={index}
+                                  className={`border-b ${contact.opted_out ? 'bg-yellow-50' : ''} ${contact.id ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
+                                  onClick={() => {
+                                    if (contact.id) {
+                                      setSelectedMember(contact)
+                                      setShowProfileDialog(true)
+                                    }
+                                  }}
                                 >
                                   <td className="py-2 px-2">{contact.name}</td>
                                   <td className="py-2 px-2">
@@ -1314,7 +1330,26 @@ export default function MassTextPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => handleDeleteContact(index)}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (contact.id) {
+                                          setSelectedMember(contact)
+                                          setShowProfileDialog(true)
+                                        }
+                                      }}
+                                      disabled={!contact.id}
+                                      className="mr-1"
+                                      title={!contact.id ? "Save to database to view profile" : "View Profile"}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDeleteContact(index)
+                                      }}
                                     >
                                       Delete
                                     </Button>
@@ -1347,7 +1382,7 @@ export default function MassTextPage() {
                           {fileName || 'No file selected'}
                         </span>
                       </div>
-                      
+
                       {/* File processing/preview loading indicator */}
                       {(uploadingFile || previewLoading) && (
                         <div className="mt-2 p-3 border rounded-md bg-gray-50">
@@ -1358,14 +1393,14 @@ export default function MassTextPage() {
                             </div>
                             <Progress value={previewLoadingProgress} className="w-full h-2" />
                             <p className="text-xs text-gray-500">
-                              {uploadingFile 
+                              {uploadingFile
                                 ? "Parsing contacts from your file. This may take 30 seconds to 1 minute depending on file size."
                                 : "Checking for duplicates and validation. This may take 30 seconds to 1 minute."}
                             </p>
                           </div>
                         </div>
                       )}
-                      
+
                       {showSheetSelector && (
                         <div className="p-4 border rounded-md bg-gray-50">
                           <h3 className="text-sm font-medium mb-2">Select a sheet to process:</h3>
@@ -1384,11 +1419,11 @@ export default function MassTextPage() {
                           </div>
                         </div>
                       )}
-                      
+
                       <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="uploadToDb" 
-                          checked={uploadToDb} 
+                        <Checkbox
+                          id="uploadToDb"
+                          checked={uploadToDb}
                           onCheckedChange={(checked: boolean | 'indeterminate') => {
                             setUploadToDb(checked === true)
                             setTempUploadToDb(checked === true)
@@ -1413,7 +1448,7 @@ export default function MassTextPage() {
                           </Tooltip>
                         </Label>
                       </div>
-                      
+
                       {uploadSuccess && (
                         <Alert className="bg-green-50 border-green-200">
                           <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -1445,15 +1480,15 @@ export default function MassTextPage() {
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <h3 className="text-lg font-semibold text-blue-800">
-                              {emailProgress.status === 'sending' ? 'Sending Emails' : 
-                               emailProgress.status === 'paused' ? 'Batch Pause' : 
-                               emailProgress.status === 'completed' ? 'Email Sending Complete' : 'Email Progress'}
+                              {emailProgress.status === 'sending' ? 'Sending Emails' :
+                                emailProgress.status === 'paused' ? 'Batch Pause' :
+                                  emailProgress.status === 'completed' ? 'Email Sending Complete' : 'Email Progress'}
                             </h3>
                             <div className="text-sm text-blue-600">
                               Batch {emailProgress.currentBatch} of {emailProgress.totalBatches}
                             </div>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <div className="flex justify-between text-sm">
                               <span>Progress: {emailProgress.current} of {emailProgress.total} emails</span>
@@ -1463,8 +1498,8 @@ export default function MassTextPage() {
                                 )}
                               </span>
                             </div>
-                            <Progress 
-                              value={(emailProgress.current / emailProgress.total) * 100} 
+                            <Progress
+                              value={(emailProgress.current / emailProgress.total) * 100}
                               className="w-full"
                             />
                           </div>
@@ -1507,22 +1542,22 @@ export default function MassTextPage() {
                       Reset
                     </Button>
                     {uploadToDb && contacts.length > 0 && !uploadSuccess && (
-                      <Button 
-                        onClick={handlePreviewContacts} 
+                      <Button
+                        onClick={handlePreviewContacts}
                         disabled={previewLoading || contacts.length === 0}
                       >
                         <Database className="h-4 w-4 mr-2" />
                         {previewLoading ? 'Loading Preview...' : 'Save Contacts'}
                       </Button>
                     )}
-                    <Button 
-                      onClick={() => openConfirmationDialog('text')} 
+                    <Button
+                      onClick={() => openConfirmationDialog('text')}
                       disabled={sending || contacts.length === 0}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
                       {sending ? 'Sending...' : 'Send Text Messages'}
                     </Button>
-                    <Button 
+                    <Button
                       onClick={handleBeautifyEmail}
                       disabled={!message || !subject}
                       variant="outline"
@@ -1531,8 +1566,8 @@ export default function MassTextPage() {
                       <Sparkles className="h-4 w-4 mr-2 text-purple-600" />
                       Beautify Email
                     </Button>
-                    <Button 
-                      onClick={() => openConfirmationDialog('email')} 
+                    <Button
+                      onClick={() => openConfirmationDialog('email')}
                       disabled={sendingEmails || contacts.length === 0}
                     >
                       <Mail className="h-4 w-4 mr-2" />
@@ -1543,215 +1578,237 @@ export default function MassTextPage() {
               </CardContent>
             </Card>
           </div>
+        ) : viewMode === 'events' ? (
+          <EventsTab orgInfo={orgInfo} />
         ) : (
           // Contacts management view
-          <Card>
-            <CardHeader>
-              <CardTitle>Member Management</CardTitle>
-              <CardDescription>
-                Add, edit or delete organization members
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium">
-                    Members ({originalContacts.length})
-                  </label>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsAddingContact(!isAddingContact)}
-                    >
-                      Add Member
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={fetchContactsFromSupabase}
-                      disabled={loadingContacts}
-                    >
-                      <RefreshCw className={`h-4 w-4 mr-1 ${loadingContacts ? 'animate-spin' : ''}`} />
-                      Refresh
-                    </Button>
-                  </div>
-                </div>
-                
-                {isAddingContact && (
-                  <div className="border rounded-md p-4 mb-4">
-                    <h3 className="text-sm font-medium mb-2">Add New Member</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
-                      <div>
-                        <Label htmlFor="new-contact-name">Name</Label>
-                        <Input
-                          id="new-contact-name"
-                          value={newContact.name}
-                          onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                          placeholder="John Doe"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="new-contact-phone">Phone</Label>
-                        <Input
-                          id="new-contact-phone"
-                          value={newContact.phone}
-                          onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                          placeholder="+1 (555) 123-4567"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="new-contact-email">Email</Label>
-                        <Input
-                          id="new-contact-email"
-                          value={newContact.email || ""}
-                          onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
-                          placeholder="john.doe@example.com"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end">
+          <>
+            <MemberProfileDialog
+              member={selectedMember}
+              isOpen={showProfileDialog}
+              onClose={() => setShowProfileDialog(false)}
+            />
+            <Card>
+              <CardHeader>
+                <CardTitle>Member Management</CardTitle>
+                <CardDescription>
+                  Add, edit or delete organization members
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium">
+                      Members ({originalContacts.length})
+                    </label>
+                    <div className="flex space-x-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="mr-2"
-                        onClick={() => setIsAddingContact(false)}
+                        onClick={() => setIsAddingContact(!isAddingContact)}
                       >
-                        Cancel
+                        Add Member
                       </Button>
-                      <Button size="sm" onClick={handleAddContact}>
-                        Add
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={fetchContactsFromSupabase}
+                        disabled={loadingContacts}
+                      >
+                        <RefreshCw className={`h-4 w-4 mr-1 ${loadingContacts ? 'animate-spin' : ''}`} />
+                        Refresh
                       </Button>
                     </div>
                   </div>
-                )}
-                
-                {/* Contact listing with edit/delete controls */}
-                <div className="border rounded-md overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {originalContacts.length === 0 ? (
+
+                  {isAddingContact && (
+                    <div className="border rounded-md p-4 mb-4">
+                      <h3 className="text-sm font-medium mb-2">Add New Member</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                        <div>
+                          <Label htmlFor="new-contact-name">Name</Label>
+                          <Input
+                            id="new-contact-name"
+                            value={newContact.name}
+                            onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                            placeholder="John Doe"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="new-contact-phone">Phone</Label>
+                          <Input
+                            id="new-contact-phone"
+                            value={newContact.phone}
+                            onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                            placeholder="+1 (555) 123-4567"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="new-contact-email">Email</Label>
+                          <Input
+                            id="new-contact-email"
+                            value={newContact.email || ""}
+                            onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                            placeholder="john.doe@example.com"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mr-2"
+                          onClick={() => setIsAddingContact(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button size="sm" onClick={handleAddContact}>
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Contact listing with edit/delete controls */}
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
                         <tr>
-                          <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
-                            No members found. Add some members to get started.
-                          </td>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
-                      ) : (
-                        originalContacts.map((contact, index) => (
-                          <tr 
-                            key={`contact-${index}`}
-                            className={contact.opted_out ? 'bg-yellow-50' : ''}
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {editingContact?.id === contact.id ? (
-                                <Input
-                                  value={editingContact?.name || ""}
-                                  onChange={(e) => {
-                                    if (editingContact) {
-                                      setEditingContact({
-                                        ...editingContact,
-                                        name: e.target.value
-                                      });
-                                    }
-                                  }}
-                                />
-                              ) : (
-                                contact.name
-                              )}
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {originalContacts.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                              No members found. Add some members to get started.
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {editingContact?.id === contact.id ? (
-                                <Input
-                                  value={editingContact?.phone || ""}
-                                  onChange={(e) => {
-                                    if (editingContact) {
-                                      setEditingContact({
-                                        ...editingContact,
-                                        phone: e.target.value
-                                      });
-                                    }
-                                  }}
-                                />
-                              ) : (
-                                <>
-                                  {contact.opted_out && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="inline-flex items-center">
-                                          <AlertTriangleIcon className="h-4 w-4 mr-1 text-yellow-500" />
-                                          <span className="line-through text-yellow-600">{contact.phone}</span>
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>This contact has opted out of messages</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                  {!contact.opted_out && contact.phone}
-                                </>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {editingContact?.id === contact.id ? (
-                                <Input
-                                  value={editingContact?.email || ""}
-                                  onChange={(e) => {
-                                    if (editingContact) {
-                                      setEditingContact({
-                                        ...editingContact,
-                                        email: e.target.value
-                                      });
-                                    }
-                                  }}
-                                />
-                              ) : (
-                                contact.email || "-"
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              {editingContact?.id === contact.id ? (
-                                <div className="flex justify-end space-x-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setEditingContact(null)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={handleSaveContact}
-                                  >
-                                    Save
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex justify-end space-x-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleEditContact(contact)}
-                                  >
-                                    <PencilIcon className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant={contact.opted_out ? "outline" : "outline"}
-                                    size="sm"
-                                    className={contact.opted_out 
-                                      ? "text-green-500 hover:text-green-700" 
-                                      : "text-yellow-500 hover:text-yellow-700"}
-                                    onClick={() => handleToggleOptOut(contact.id!, contact.opted_out || false)}
-                                  >
-                                    {contact.opted_out 
-                                      ? <Tooltip>
+                          </tr>
+                        ) : (
+                          originalContacts.map((contact, index) => (
+                            <tr
+                              key={`contact-${index}`}
+                              className={`${contact.opted_out ? 'bg-yellow-50' : ''} cursor-pointer hover:bg-gray-50 transition-colors`}
+                              onClick={() => {
+                                if (!editingContact?.id || editingContact.id !== contact.id) {
+                                  if (contact.id) {
+                                    setSelectedMember(contact)
+                                    setShowProfileDialog(true)
+                                  }
+                                }
+                              }}
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {editingContact?.id === contact.id ? (
+                                  <Input
+                                    value={editingContact?.name || ""}
+                                    onChange={(e) => {
+                                      if (editingContact) {
+                                        setEditingContact({
+                                          ...editingContact,
+                                          name: e.target.value
+                                        });
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  contact.name
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {editingContact?.id === contact.id ? (
+                                  <Input
+                                    value={editingContact?.phone || ""}
+                                    onChange={(e) => {
+                                      if (editingContact) {
+                                        setEditingContact({
+                                          ...editingContact,
+                                          phone: e.target.value
+                                        });
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <>
+                                    {contact.opted_out && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="inline-flex items-center">
+                                            <AlertTriangleIcon className="h-4 w-4 mr-1 text-yellow-500" />
+                                            <span className="line-through text-yellow-600">{contact.phone}</span>
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>This contact has opted out of messages</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                    {!contact.opted_out && contact.phone}
+                                  </>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {editingContact?.id === contact.id ? (
+                                  <Input
+                                    value={editingContact?.email || ""}
+                                    onChange={(e) => {
+                                      if (editingContact) {
+                                        setEditingContact({
+                                          ...editingContact,
+                                          email: e.target.value
+                                        });
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  contact.email || "-"
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                {editingContact?.id === contact.id ? (
+                                  <div className="flex justify-end space-x-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setEditingContact(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      onClick={handleSaveContact}
+                                    >
+                                      Save
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex justify-end space-x-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleEditContact(contact)
+                                      }}
+                                    >
+                                      <PencilIcon className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant={contact.opted_out ? "outline" : "outline"}
+                                      size="sm"
+                                      className={contact.opted_out
+                                        ? "text-green-500 hover:text-green-700"
+                                        : "text-yellow-500 hover:text-yellow-700"}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleToggleOptOut(contact.id!, contact.opted_out || false)
+                                      }}
+                                    >
+                                      {contact.opted_out
+                                        ? <Tooltip>
                                           <TooltipTrigger asChild>
                                             <span className="flex items-center">
                                               <CheckCircle2 className="h-4 w-4" />
@@ -1761,7 +1818,7 @@ export default function MassTextPage() {
                                             <p>Opt this contact back in</p>
                                           </TooltipContent>
                                         </Tooltip>
-                                      : <Tooltip>
+                                        : <Tooltip>
                                           <TooltipTrigger asChild>
                                             <span className="flex items-center">
                                               <AlertTriangleIcon className="h-4 w-4" />
@@ -1771,33 +1828,37 @@ export default function MassTextPage() {
                                             <p>Mark as opted out</p>
                                           </TooltipContent>
                                         </Tooltip>
-                                    }
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-red-500 hover:text-red-700"
-                                    onClick={() => handleDeleteContact(index)}
-                                  >
-                                    <TrashIcon className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                                      }
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-red-500 hover:text-red-700"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDeleteContact(index)
+                                      }}
+                                    >
+                                      <TrashIcon className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button variant="outline" onClick={handleReset}>
-                Reset
-              </Button>
-            </CardFooter>
-          </Card>
+              </CardContent>
+              <CardFooter className="flex justify-end">
+                <Button variant="outline" onClick={handleReset}>
+                  Reset
+                </Button>
+              </CardFooter>
+            </Card>
+          </>
         )}
 
         {(showResults || emailResults) && (
@@ -1926,11 +1987,11 @@ export default function MassTextPage() {
             </div>
             <div className="mb-4">
               <p className="font-medium">Sending to {contacts.length} contacts</p>
-              
+
               {confirmationType === 'text' && (() => {
                 const optedOutContacts = contacts.filter(c => c.opted_out);
                 const activeContacts = contacts.filter(c => !c.opted_out);
-                
+
                 if (optedOutContacts.length > 0) {
                   return (
                     <Alert className="mt-2 border-yellow-300 bg-yellow-50">
@@ -1942,10 +2003,10 @@ export default function MassTextPage() {
                     </Alert>
                   );
                 }
-                
+
                 return null;
               })()}
-              
+
               {confirmationType === 'email' && (
                 <p className="text-sm text-gray-500">
                   Only contacts with email addresses will receive the message
@@ -1973,7 +2034,7 @@ export default function MassTextPage() {
                   Review the contacts before uploading to the database
                 </p>
               </div>
-              
+
               <div className="p-6 overflow-y-auto flex-grow">
                 {previewData.newContacts.length > 0 ? (
                   <div className="mb-6">
@@ -2005,7 +2066,7 @@ export default function MassTextPage() {
                 ) : (
                   <p className="text-gray-500 italic mb-6">No new contacts to add</p>
                 )}
-                
+
                 {previewData.existingContacts.length > 0 ? (
                   <div>
                     <h4 className="font-medium text-amber-600 mb-2 flex items-center">
@@ -2036,7 +2097,7 @@ export default function MassTextPage() {
                 ) : (
                   <p className="text-gray-500 italic">No existing contacts found</p>
                 )}
-                
+
                 {previewData.flaggedContacts && previewData.flaggedContacts.length > 0 && (
                   <div className="my-6">
                     <div className="flex items-center justify-between mb-4">
@@ -2047,8 +2108,8 @@ export default function MassTextPage() {
                       <div className="flex space-x-2">
                         {/* Show Add All button if not all flagged contacts are added */}
                         {previewData.flaggedContacts.some(contact => !contactsToAddAnyway.includes(contact)) && (
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={handleAddAllFlaggedContacts}
                             className="text-green-600 border-green-600 hover:bg-green-50"
@@ -2058,8 +2119,8 @@ export default function MassTextPage() {
                         )}
                         {/* Show Remove All button if any flagged contacts are added */}
                         {contactsToAddAnyway.some(contact => previewData.flaggedContacts.includes(contact)) && (
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={handleRemoveAllFlaggedContacts}
                             className="text-red-600 border-red-600 hover:bg-red-50"
@@ -2087,24 +2148,24 @@ export default function MassTextPage() {
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{contact.email || "-"}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <div className="flex space-x-2">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => handleEditFlaggedContact(contact)}
                                   >
                                     Edit
                                   </Button>
                                   {contactsToAddAnyway.includes(contact) ? (
-                                    <Button 
-                                      variant="outline" 
+                                    <Button
+                                      variant="outline"
                                       size="sm"
                                       onClick={() => handleRemoveFlaggedContact(contact)}
                                     >
                                       Remove
                                     </Button>
                                   ) : (
-                                    <Button 
-                                      variant="outline" 
+                                    <Button
+                                      variant="outline"
                                       size="sm"
                                       onClick={() => handleAddFlaggedContact(contact)}
                                     >
@@ -2123,7 +2184,7 @@ export default function MassTextPage() {
                     </p>
                   </div>
                 )}
-                
+
                 {previewData.invalidContacts && previewData.invalidContacts.length > 0 && (
                   <div className="mt-6">
                     <h4 className="font-medium text-red-600 mb-2 flex items-center">
@@ -2153,13 +2214,13 @@ export default function MassTextPage() {
                   </div>
                 )}
               </div>
-              
+
               <div className="p-6 border-t flex justify-end space-x-3">
                 <Button variant="outline" onClick={() => setShowPreviewModal(false)}>
                   Cancel
                 </Button>
-                <Button 
-                  onClick={handleUploadAfterPreview} 
+                <Button
+                  onClick={handleUploadAfterPreview}
                   disabled={uploadingFile || previewData.newContacts.length === 0}
                 >
                   {uploadingFile ? (
@@ -2181,11 +2242,11 @@ export default function MassTextPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
               <h3 className="text-lg font-medium mb-4">Edit Contact</h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">Name</label>
-                  <input 
+                  <input
                     type="text"
                     className="w-full border rounded-md p-2"
                     value={editingFlaggedContact.name || ''}
@@ -2195,12 +2256,12 @@ export default function MassTextPage() {
                     })}
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium mb-1">
                     Phone Number <span className="text-red-500">*</span>
                   </label>
-                  <input 
+                  <input
                     type="text"
                     className="w-full border rounded-md p-2"
                     value={editingFlaggedContact.phone || ''}
@@ -2214,10 +2275,10 @@ export default function MassTextPage() {
                     Format: US numbers should be 10 digits (e.g., 2065551234) or include country code (e.g., 12065551234)
                   </p>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium mb-1">Email</label>
-                  <input 
+                  <input
                     type="email"
                     className="w-full border rounded-md p-2"
                     value={editingFlaggedContact.email || ''}
@@ -2228,10 +2289,10 @@ export default function MassTextPage() {
                   />
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-3 mt-6">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setEditingFlaggedContact(null)}
                 >
                   Cancel
@@ -2278,12 +2339,12 @@ export default function MassTextPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
               <h3 className="text-lg font-medium mb-4">Missing Contact Information</h3>
-              
+
               <div className="space-y-4">
                 <p className="text-gray-600">
                   The following contacts are missing phone numbers or email addresses:
                 </p>
-                
+
                 <div className="border rounded-md overflow-hidden">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -2306,15 +2367,15 @@ export default function MassTextPage() {
                     </tbody>
                   </table>
                 </div>
-                
+
                 <p className="text-sm text-gray-600">
                   These contacts will not be added to your database. Would you like to proceed with uploading the other contacts?
                 </p>
               </div>
-              
+
               <div className="flex justify-end space-x-3 mt-6">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => handleFlaggedContactsConfirmation(false)}
                 >
                   Cancel
@@ -2335,15 +2396,15 @@ export default function MassTextPage() {
                 <AlertTriangleIcon className="h-6 w-6 mr-2" />
                 <h3 className="text-lg font-medium">Temporary Contacts</h3>
               </div>
-              
+
               <p className="mb-4">
                 The contacts you&apos;ve uploaded won&apos;t be saved to your database. They will only be used for this session and will be lost when you leave this page.
               </p>
-              
+
               <p className="mb-6">
                 Do you want to continue sending without saving, or would you like to save these contacts first?
               </p>
-              
+
               <div className="flex justify-end space-x-3">
                 <Button
                   variant="outline"

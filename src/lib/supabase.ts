@@ -14,7 +14,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 // Admin client for server-side operations that need full access
 // This should ONLY be used in server-side code
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-export const supabaseAdmin = serviceRoleKey ? 
+export const supabaseAdmin = serviceRoleKey ?
     createClient(supabaseUrl, serviceRoleKey, {
         auth: {
             autoRefreshToken: false,
@@ -99,6 +99,24 @@ export interface ConversationState {
     expires_at?: string;
 }
 
+export interface Event {
+    id: number;
+    created_at: string;
+    organization_id: number;
+    name: string;
+    description?: string;
+    event_date: string;
+    code: string;
+}
+
+export interface Attendance {
+    id: number;
+    created_at: string;
+    event_id: number;
+    member_id: number;
+    status: string;
+}
+
 // Helper functions for database operations
 export async function getOrganizationByAccessCode(accessCode: string): Promise<Organization | null> {
     const { data, error } = await supabase
@@ -130,11 +148,11 @@ export async function getOrgMembersByOrgId(orgId: number): Promise<OrgMember[]> 
 }
 
 export async function getEmailInfoByOrgId(orgId: number): Promise<EmailInfo | null> {
-    
+
     if (!supabaseAdmin) {
         return null;
     }
-    
+
     const { data, error } = await supabaseAdmin
         .from('email_info')
         .select('*')
@@ -155,12 +173,12 @@ export async function updateMessageLimit(orgId: number, newLimit: number): Promi
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return false;
     }
-    
+
     const { error } = await supabaseAdmin
         .from('organizations')
         .update({ message_limit: newLimit })
         .eq('id', orgId);
-        
+
     if (error) {
         console.error('Error updating message limit:', error);
         return false;
@@ -175,7 +193,7 @@ export async function updateEmailRemaining(orgId: number, newCount: number): Pro
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return false;
     }
-    
+
     const { error } = await supabaseAdmin
         .from('organizations')
         .update({ email_remaining: newCount })
@@ -190,65 +208,65 @@ export async function updateEmailRemaining(orgId: number, newCount: number): Pro
 }
 
 export async function updateMessageSent(orgId: number, newCount: number): Promise<boolean> {
-    
+
     try {
         // Ensure we have admin client
         if (!supabaseAdmin) {
             throw new Error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         }
-        
+
         // Ensure newCount is not null or undefined
         if (newCount === null || newCount === undefined) {
             throw new Error(`Invalid newCount value: ${newCount}`);
         }
-        
+
         // Ensure newCount is a number
         const numericCount = Number(newCount);
         if (isNaN(numericCount)) {
             throw new Error(`Invalid non-numeric value: ${newCount}`);
         }
-        
+
         // Format the date as YYYY-MM-DD for the database
         const today = new Date();
         const formattedDate = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-        
-        
+
+
         // Direct update approach using admin client
         const { data, error } = await supabaseAdmin
             .from('organizations')
-            .update({ 
+            .update({
                 message_sent: numericCount,
                 last_message_sent: formattedDate
             })
             .eq('id', orgId)
             .select();
-        
+
         if (error) {
             throw new Error(`Database update error: ${error.message}`);
         }
-        
-        
+
+
         if (!data || data.length === 0) {
             console.warn('Update successful but no data returned');
         }
-        
+
         // Verify the update was successful by fetching the data again
         const { data: verifyData, error: verifyError } = await supabaseAdmin
             .from('organizations')
             .select('message_sent, last_message_sent')
             .eq('id', orgId)
             .single();
-        
+
         if (verifyError) {
             throw new Error(`Verification error: ${verifyError.message}`);
         }
-        
+
         console.log('Verification data after update:', verifyData);
-        
+
         if (Number(verifyData.message_sent) !== numericCount) {
             console.warn(`Verification failed: expected message_sent to be ${numericCount} but got ${verifyData.message_sent}`);
         }
-        
+
         return true;
     } catch (error) {
         console.error('Error in updateMessageSent:', error);
@@ -257,65 +275,65 @@ export async function updateMessageSent(orgId: number, newCount: number): Promis
 }
 
 export async function updateEmailsSent(orgId: number, newCount: number): Promise<boolean> {
-    
+
     try {
         // Ensure we have admin client
         if (!supabaseAdmin) {
             throw new Error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         }
-        
+
         // Ensure newCount is not null or undefined
         if (newCount === null || newCount === undefined) {
             throw new Error(`Invalid newCount value: ${newCount}`);
         }
-        
+
         // Ensure newCount is a number
         const numericCount = Number(newCount);
         if (isNaN(numericCount)) {
             throw new Error(`Invalid non-numeric value: ${newCount}`);
         }
-        
+
         // Format the date as YYYY-MM-DD for the database
         const today = new Date();
         const formattedDate = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-        
-        
+
+
         // Direct update approach using admin client
         const { data, error } = await supabaseAdmin
             .from('organizations')
-            .update({ 
+            .update({
                 emails_sent: numericCount,
                 last_email_sent: formattedDate
             })
             .eq('id', orgId)
             .select();
-        
+
         if (error) {
             throw new Error(`Database update error: ${error.message}`);
         }
-        
-        
+
+
         if (!data || data.length === 0) {
             console.warn('Update successful but no data returned');
         }
-        
+
         // Verify the update was successful by fetching the data again
         const { data: verifyData, error: verifyError } = await supabaseAdmin
             .from('organizations')
             .select('emails_sent, last_email_sent')
             .eq('id', orgId)
             .single();
-        
+
         if (verifyError) {
             throw new Error(`Verification error: ${verifyError.message}`);
         }
-        
+
         console.log('Verification data after update:', verifyData);
-        
+
         if (verifyData.emails_sent !== numericCount) {
             console.warn(`Verification failed: expected emails_sent to be ${numericCount} but got ${verifyData.emails_sent}`);
         }
-        
+
         return true;
     } catch (error) {
         console.error('Error in updateEmailsSent:', error);
@@ -329,7 +347,7 @@ export async function addOrgMembers(members: Omit<OrgMember, 'id' | 'created_at'
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return false;
     }
-    
+
     const { error } = await supabaseAdmin
         .from('org_members')
         .insert(members);
@@ -347,26 +365,26 @@ export async function addOrgMembers(members: Omit<OrgMember, 'id' | 'created_at'
  * Ensures phone numbers are stored as 12065734928 (with country code)
  */
 export function formatPhoneNumber(phoneNumber: string | null | undefined): string {
-  // Handle null or undefined phone numbers
-  if (phoneNumber === null || phoneNumber === undefined) {
-    return '';
-  }
-  
-  // Remove all non-digit characters including the '+' sign
-  const digitsOnly = phoneNumber.replace(/\D/g, '');
-  
-  // US numbers: if it's 10 digits, add '1' as country code
-  if (digitsOnly.length === 10) {
-    return `1${digitsOnly}`;
-  }
-  
-  // If it already has 11 digits and starts with 1, assume it's already formatted correctly
-  if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+    // Handle null or undefined phone numbers
+    if (phoneNumber === null || phoneNumber === undefined) {
+        return '';
+    }
+
+    // Remove all non-digit characters including the '+' sign
+    const digitsOnly = phoneNumber.replace(/\D/g, '');
+
+    // US numbers: if it's 10 digits, add '1' as country code
+    if (digitsOnly.length === 10) {
+        return `1${digitsOnly}`;
+    }
+
+    // If it already has 11 digits and starts with 1, assume it's already formatted correctly
+    if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+        return digitsOnly;
+    }
+
+    // Return as-is for other cases (could be international or incorrect)
     return digitsOnly;
-  }
-  
-  // Return as-is for other cases (could be international or incorrect)
-  return digitsOnly;
 }
 
 /**
@@ -381,7 +399,7 @@ export async function checkExistingContacts(
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return { newContacts: [], existingContacts: contacts, flaggedContacts: [] };
     }
-    
+
     // Identify flagged contacts (missing phone numbers) and format phone numbers for valid contacts
     const flaggedContacts: Contact[] = [];
     const validContacts = contacts.map(contact => {
@@ -393,33 +411,33 @@ export async function checkExistingContacts(
                 formattedPhone: null
             };
         }
-        
+
         return {
             ...contact,
             formattedPhone: formatPhoneNumber(contact.phone)
         };
     }) as Array<Contact & { formattedPhone: string | null }>;
-    
+
     // Get all existing contacts for this organization
     const { data: existingOrgMembers, error } = await supabaseAdmin
         .from('org_members')
         .select('phone_number')
         .eq('organization_id', parseInt(organizationId));
-    
+
     if (error) {
         console.error('Error fetching existing contacts:', error);
         return { newContacts: contacts, existingContacts: [], flaggedContacts };
     }
-    
+
     // Format existing phone numbers for comparison
     const existingPhoneNumbers = new Set(
         existingOrgMembers.map(member => formatPhoneNumber(member.phone_number))
     );
-    
+
     // Separate contacts into new and existing
     const newContacts: Contact[] = [];
     const existingContacts: Contact[] = [];
-    
+
     for (const contact of validContacts) {
         // Only check for duplicates if the contact has a phone number
         if (contact.formattedPhone && existingPhoneNumbers.has(contact.formattedPhone)) {
@@ -436,7 +454,7 @@ export async function checkExistingContacts(
             });
         }
     }
-    
+
     return { newContacts, existingContacts, flaggedContacts };
 }
 
@@ -453,10 +471,10 @@ export async function uploadContactsWithDuplicateCheck(
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return { uploaded: 0, skipped: 0, flagged: contacts.length };
     }
-    
+
     // Check for existing contacts
     const { newContacts, existingContacts, flaggedContacts } = await checkExistingContacts(organizationId, contacts);
-    
+
     // If it's just a preview, return the counts without uploading
     if (previewOnly) {
         return {
@@ -469,7 +487,7 @@ export async function uploadContactsWithDuplicateCheck(
             flaggedContacts
         };
     }
-    
+
     // If there are no new contacts, return early
     if (newContacts.length === 0) {
         return {
@@ -481,7 +499,7 @@ export async function uploadContactsWithDuplicateCheck(
             flaggedContacts
         };
     }
-    
+
     // Upload new contacts
     const { error } = await supabaseAdmin
         .from('org_members')
@@ -541,22 +559,22 @@ export async function addOrgMember(member: Omit<OrgMember, 'id' | 'created_at'>)
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return false;
     }
-    
+
     // Format the phone number for consistent comparison
     const formattedPhone = formatPhoneNumber(member.phone_number);
     console.log(`Checking if member exists with formatted phone: ${formattedPhone} in org: ${member.organization_id}`);
-    
+
     // First check if this phone number already exists in the organization
     const { data: existingMembers, error: checkError } = await supabaseAdmin
         .from('org_members')
         .select('id, phone_number, first_name, last_name')
         .eq('organization_id', member.organization_id);
-    
+
     if (checkError) {
         console.error('Error checking for existing org members:', checkError);
         return false;
     }
-    
+
     // Check for existing members with the same phone number
     const matchingMember = existingMembers?.find(existing => {
         const existingFormatted = formatPhoneNumber(existing.phone_number);
@@ -566,15 +584,15 @@ export async function addOrgMember(member: Omit<OrgMember, 'id' | 'created_at'>)
         }
         return isMatch;
     });
-    
+
     // If member already exists, consider it a success but don't add a duplicate
     if (matchingMember) {
         console.log(`Member with phone ${member.phone_number} already exists as ID ${matchingMember.id} (${matchingMember.first_name} ${matchingMember.last_name}) in organization ${member.organization_id}`);
         return true;
     }
-    
+
     console.log(`No existing member found with phone ${formattedPhone}. Adding new member: ${member.first_name} ${member.last_name}`);
-    
+
     // Member doesn't exist, proceed with insertion
     const { error } = await supabaseAdmin
         .from('org_members')
@@ -598,7 +616,7 @@ export async function getConversationState(phoneNumber: string): Promise<Convers
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return null;
     }
-    
+
     const { data, error } = await supabaseAdmin
         .from('conversation_states')
         .select('*')
@@ -631,7 +649,7 @@ export async function upsertConversationState(state: ConversationState): Promise
 
     const { error } = await supabaseAdmin
         .from('conversation_states')
-        .upsert(stateWithTimestamp, { 
+        .upsert(stateWithTimestamp, {
             onConflict: 'phone_number',
             ignoreDuplicates: false
         });
@@ -705,7 +723,7 @@ export async function updateOrgMember(
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return false;
     }
-    
+
     const { error } = await supabaseAdmin
         .from('org_members')
         .update(updates)
@@ -728,7 +746,7 @@ export async function deleteOrgMember(memberId: number): Promise<boolean> {
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return false;
     }
-    
+
     const { error } = await supabaseAdmin
         .from('org_members')
         .delete()
@@ -751,10 +769,10 @@ export async function markUserOptedOut(phoneNumber: string): Promise<boolean> {
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return false;
     }
-    
+
     // Format the phone number for consistent comparison
     const formattedPhone = formatPhoneNumber(phoneNumber);
-    
+
     // Update all matching records across all organizations
     const { error } = await supabaseAdmin
         .from('org_members')
@@ -775,7 +793,7 @@ export async function markUserOptedOut(phoneNumber: string): Promise<boolean> {
 export async function hasUserOptedOut(phoneNumber: string): Promise<boolean> {
     // Format the phone number for consistent comparison
     const formattedPhone = formatPhoneNumber(phoneNumber);
-    
+
     const { data, error } = await supabase
         .from('org_members')
         .select('opted_out')
@@ -800,10 +818,10 @@ export async function markUserOptedIn(phoneNumber: string): Promise<boolean> {
         console.error('Admin client not available, SUPABASE_SERVICE_ROLE_KEY may be missing');
         return false;
     }
-    
+
     // Format the phone number for consistent comparison
     const formattedPhone = formatPhoneNumber(phoneNumber);
-    
+
     // Update all matching records across all organizations
     const { error } = await supabaseAdmin
         .from('org_members')
