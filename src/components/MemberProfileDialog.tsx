@@ -64,17 +64,19 @@ export function MemberProfileDialog({ member, isOpen, onClose }: MemberProfileDi
                         </div>
                         {member.name}
                     </DialogTitle>
-                    <DialogDescription className="space-y-1 mt-2 text-gray-400">
-                        <div className="flex items-center gap-2 text-sm">
-                            <Phone className="h-4 w-4" />
-                            {member.phone}
-                        </div>
-                        {member.email && (
+                    <DialogDescription className="space-y-1 mt-2 text-gray-400" asChild>
+                        <div>
                             <div className="flex items-center gap-2 text-sm">
-                                <Mail className="h-4 w-4" />
-                                {member.email}
+                                <Phone className="h-4 w-4" />
+                                {member.phone}
                             </div>
-                        )}
+                            {member.email && (
+                                <div className="flex items-center gap-2 text-sm">
+                                    <Mail className="h-4 w-4" />
+                                    {member.email}
+                                </div>
+                            )}
+                        </div>
                     </DialogDescription>
                 </DialogHeader>
 
