@@ -17,10 +17,14 @@ Implement a system to track student attendance for organization events. Administ
 2.  Lands on a simple mobile-friendly page: `'/check-in/[eventId]'`.
 3.  Enters their phone number.
 4.  Clicks "Check In".
-5.  System verifies:
-    *   Is the phone number associated with a member of the organization hosting the event?
-    *   Has the student already checked in?
-6.  Success message: "You are checked in!" OR Error message.
+5.  **System checks membership**:
+    *   **If member exists**: System marks attendance. Displays "You are checked in!".
+    *   **If member does NOT exist**:
+        1.  System prompts user for **First Name**, **Last Name**, and **Email**.
+        2.  User enters details and clicks "Confirm Attendance".
+        3.  System creates a new member profile.
+        4.  System marks attendance.
+        5.  Displays "You are checked in!".
 
 ### 3. Administrator (Review)
 1.  Admin views the Event details page.
@@ -71,10 +75,13 @@ create table attendance (
 
 ### 2. Public: Student Check-in (`/check-in/[code]`)
 *   **Layout**: Minimalist, mobile-focused.
-*   **Form**: Input field for Phone Number.
-*   **Logic**:
-    *   Clean phone number input.
-    *   Call API to verify and mark attendance.
+*   **Step 1**: Input field for Phone Number.
+*   **Step 2 (Conditional)**: If phone not found, show fields for First Name, Last Name, Email.
+*   **Interaction**:
+    *   Submit Phone -> API Search.
+    *   If 200 OK -> Success Screen.
+    *   If 404 Not Found -> Show Registration Form.
+    *   Submit Registration -> API Create & Check-in -> Success Screen.
 
 ## Backend / API Requirements
 
@@ -82,14 +89,29 @@ create table attendance (
 *   Creates a new event for the logged-in organization.
 
 ### 2. `POST /api/attendance`
-*   **Input**: `{ eventCode: string, phoneNumber: string }`
+*   **Input**: 
+    ```json
+    { 
+      "eventCode": "string", 
+      "phoneNumber": "string", 
+      "firstName": "string (optional)", 
+      "lastName": "string (optional)", 
+      "email": "string (optional)"
+    }
+    ```
 *   **Logic**:
     1.  Find `event` by `eventCode`.
     2.  Find `org_member` by `phoneNumber` AND `event.organization_id`.
-    3.  If member not found -> Return Error ("Member not found. Please register with the organization first.").
-    4.  If already in `attendance` -> Return Success/Info ("Already checked in").
-    5.  Insert into `attendance` table.
-    6.  Return Success.
+    3.  **If member exists**:
+        *   Insert into `attendance` table (if not already there).
+        *   Return Success.
+    4.  **If member does NOT exist**:
+        *   If `firstName`, `lastName`, and `email` are **provided**:
+            *   Create new `org_member` for this organization.
+            *   Insert into `attendance` table.
+            *   Return Success.
+        *   If details **missing**:
+            *   Return Error / Status indicating "Member not found, details required".
 
 ## Implementation Plan
 
