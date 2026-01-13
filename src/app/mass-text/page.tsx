@@ -1691,7 +1691,15 @@ export default function MassTextPage() {
                           originalContacts.map((contact, index) => (
                             <tr
                               key={`contact-${index}`}
-                              className={contact.opted_out ? 'bg-yellow-50' : ''}
+                              className={`${contact.opted_out ? 'bg-yellow-50' : ''} cursor-pointer hover:bg-gray-50 transition-colors`}
+                              onClick={() => {
+                                if (!editingContact?.id || editingContact.id !== contact.id) {
+                                  if (contact.id) {
+                                    setSelectedMember(contact)
+                                    setShowProfileDialog(true)
+                                  }
+                                }
+                              }}
                             >
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                 {editingContact?.id === contact.id ? (
@@ -1781,7 +1789,10 @@ export default function MassTextPage() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => handleEditContact(contact)}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleEditContact(contact)
+                                      }}
                                     >
                                       <PencilIcon className="h-4 w-4" />
                                     </Button>
@@ -1791,7 +1802,10 @@ export default function MassTextPage() {
                                       className={contact.opted_out
                                         ? "text-green-500 hover:text-green-700"
                                         : "text-yellow-500 hover:text-yellow-700"}
-                                      onClick={() => handleToggleOptOut(contact.id!, contact.opted_out || false)}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleToggleOptOut(contact.id!, contact.opted_out || false)
+                                      }}
                                     >
                                       {contact.opted_out
                                         ? <Tooltip>
@@ -1820,7 +1834,10 @@ export default function MassTextPage() {
                                       variant="outline"
                                       size="sm"
                                       className="text-red-500 hover:text-red-700"
-                                      onClick={() => handleDeleteContact(index)}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDeleteContact(index)
+                                      }}
                                     >
                                       <TrashIcon className="h-4 w-4" />
                                     </Button>
