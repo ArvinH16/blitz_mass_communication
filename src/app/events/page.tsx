@@ -15,7 +15,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { createEvent, getOrgEvents, getEventAttendees } from "@/app/actions/events"
-import { Plus, Calendar, QrCode, Users, ExternalLink } from "lucide-react"
+import { Plus, Calendar, QrCode, Users, ExternalLink, RefreshCw } from "lucide-react"
 import { QRCode } from 'react-qrcode-logo';
 import { Event } from "@/lib/supabase"
 // import AnimatedBackground from "@/components/AnimatedBackground" 
@@ -35,9 +35,32 @@ export default function EventsPage() {
     const [newEventDesc, setNewEventDesc] = useState("")
     const [creating, setCreating] = useState(false)
 
+
     // Attendees State
-    const [attendees, setAttendees] = useState<any[]>([])
+    interface AttendeeRecord {
+        id: number;
+        created_at: string;
+        org_members: {
+            first_name: string;
+            last_name: string;
+            phone_number: string;
+        }
+    }
+    const [attendees, setAttendees] = useState<AttendeeRecord[]>([])
     const [loadingAttendees, setLoadingAttendees] = useState(false)
+
+    const loadAttendees = async (eventId: number) => {
+        setLoadingAttendees(true);
+        const att = await getEventAttendees(eventId);
+        setAttendees(att as unknown as AttendeeRecord[]);
+        setLoadingAttendees(false);
+    }
+
+    const refreshAttendees = () => {
+        if (selectedEvent) {
+            loadAttendees(selectedEvent.id);
+        }
+    }
 
     useEffect(() => {
         const verifyAuth = async () => {
@@ -101,10 +124,7 @@ export default function EventsPage() {
     const openEventDetails = async (event: Event) => {
         setSelectedEvent(event);
         setShowDetailDialog(true);
-        setLoadingAttendees(true);
-        const att = await getEventAttendees(event.id);
-        setAttendees(att);
-        setLoadingAttendees(false);
+        loadAttendees(event.id);
     }
 
     // Helper to get Check-in URL
@@ -122,7 +142,7 @@ export default function EventsPage() {
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
                             Events
                         </h1>
-                        <p className="text-gray-400 mt-2">Manage your organization's events and attendance.</p>
+                        <p className="text-gray-400 mt-2">Manage your organization&apos;s events and attendance.</p>
                     </div>
                     <Button onClick={() => setShowCreateDialog(true)} className="bg-white text-black hover:bg-gray-200">
                         <Plus className="mr-2 h-4 w-4" /> Create Event
@@ -252,9 +272,14 @@ export default function EventsPage() {
 
                                     {/* Attendees Section */}
                                     <div className="flex flex-col space-y-4">
-                                        <h3 className="font-semibold text-gray-300 flex items-center gap-2">
-                                            <Users className="w-4 h-4" /> Attendees ({attendees.length})
-                                        </h3>
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="font-semibold text-gray-300 flex items-center gap-2">
+                                                <Users className="w-4 h-4" /> Attendees ({attendees.length})
+                                            </h3>
+                                            <Button size="sm" variant="ghost" onClick={refreshAttendees} disabled={loadingAttendees} className="h-8 w-8 p-0">
+                                                <RefreshCw className={`w-3 h-3 ${loadingAttendees ? 'animate-spin' : ''}`} />
+                                            </Button>
+                                        </div>
 
                                         <div className="flex-1 bg-white/5 rounded-xl border border-gray-800/50 overflow-hidden flex flex-col h-[350px]">
                                             {loadingAttendees ? (
@@ -276,7 +301,7 @@ export default function EventsPage() {
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-gray-800/50">
-                                                            {attendees.map((att: any) => (
+                                                            {attendees.map((att) => (
                                                                 <tr key={att.id} className="hover:bg-white/5 transition-colors">
                                                                     <td className="px-4 py-3 font-medium text-gray-200">
                                                                         {att.org_members.first_name} {att.org_members.last_name}
