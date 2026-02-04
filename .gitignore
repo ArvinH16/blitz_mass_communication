@@ -34,7 +34,8 @@ yarn-error.log*
 .env*
 SQL_DATATABLE_STRUCTURE.md
 supabase_policies.md
-database-structure.md
+DATABASE_STRUCTURE.md
+AUTH_AND_ADMIN_PRD.md
 
 # vercel
 .vercel
@@ -42,3 +43,7 @@ database-structure.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#
+tamid_backup.sql
+SQL_DATATABLE_STRUCTURE.md
