@@ -2,14 +2,22 @@ import { createClient } from '@supabase/supabase-js';
 
 // Initialize the Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_PUBLIC || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_PUBLIC ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_KEY ||
+    '';
 
 if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing Supabase environment variables');
+    if (typeof window === 'undefined') {
+        console.error('Missing Supabase environment variables. Please check your .env file.');
+        console.error('Required: NEXT_PUBLIC_SUPABASE_URL and one of: NEXT_PUBLIC_SUPABASE_ANON_PUBLIC, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SUPABASE_KEY');
+    }
+    // We don't throw here to allow the app to load even if misconfigured, 
+    // but actual Supabase calls will fail with a clearer error.
 }
 
 // Public client for client-side operations
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseKey || 'placeholder');
 
 // Admin client for server-side operations that need full access
 // This should ONLY be used in server-side code
