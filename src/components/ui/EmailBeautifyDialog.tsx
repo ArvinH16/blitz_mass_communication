@@ -77,15 +77,15 @@ interface AIChatInterfaceProps {
   chatInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
-const AIChatInterface = React.memo(({ 
-  showAIChat, 
-  setShowAIChat, 
-  chatMessages, 
-  currentMessage, 
-  setCurrentMessage, 
-  isChatLoading, 
+const AIChatInterface = React.memo(({
+  showAIChat,
+  setShowAIChat,
+  chatMessages,
+  currentMessage,
+  setCurrentMessage,
+  isChatLoading,
   handleSendChatMessage,
-  chatInputRef 
+  chatInputRef
 }: AIChatInterfaceProps) => {
   if (!showAIChat) return null;
 
@@ -97,9 +97,9 @@ const AIChatInterface = React.memo(({
             <MessageSquare className="h-4 w-4 mr-2 text-blue-500" />
             AI Assistant
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowAIChat(false)}
             className="h-6 w-6 p-0"
           >
@@ -128,11 +128,10 @@ const AIChatInterface = React.memo(({
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] p-2 rounded-lg text-sm ${
-                    msg.role === 'user'
+                  className={`max-w-[80%] p-2 rounded-lg text-sm ${msg.role === 'user'
                       ? 'bg-blue-500 text-white'
                       : 'bg-white border border-gray-200'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-start space-x-2">
                     {msg.role === 'assistant' && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
@@ -174,7 +173,7 @@ const AIChatInterface = React.memo(({
             autoComplete="off"
             autoFocus={showAIChat}
           />
-          <Button 
+          <Button
             onClick={handleSendChatMessage}
             disabled={!currentMessage.trim() || isChatLoading}
             size="sm"
@@ -307,7 +306,9 @@ export function EmailBeautifyDialog({
       timestamp: new Date()
     };
 
-    setChatMessages(prev => [...prev, userMessage]);
+    // Optimistically add user message
+    const newHistory = [...chatMessages, userMessage];
+    setChatMessages(newHistory);
     setCurrentMessage('');
     setIsChatLoading(true);
 
@@ -317,20 +318,23 @@ export function EmailBeautifyDialog({
     }, 0);
 
     try {
-      const response = await fetch('/api/ai-assist', {
+      const response = await fetch('/api/email-conversation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           message: currentMessage,
-          context: {
-            currentHtml: htmlContent,
-            subject: aiEnhancements?.enhancedSubject || subject,
-            template: selectedTemplate,
+          conversationHistory: newHistory.map(m => ({
+            role: m.role,
+            content: m.content
+          })),
+          currentHtml: htmlContent,
+          originalContent: {
+            subject,
+            message,
             orgName
-          },
-          type: 'email_customization'
+          }
         }),
       });
 
@@ -339,11 +343,11 @@ export function EmailBeautifyDialog({
       }
 
       const data = await response.json();
-      
+
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.response,
+        content: data.message, // Use the conversational response
         timestamp: new Date()
       };
 
@@ -355,9 +359,12 @@ export function EmailBeautifyDialog({
         setPreviewKey(prev => prev + 1);
       }
 
-      if (data.updatedEnhancements) {
-        setAiEnhancements(data.updatedEnhancements);
+      // Handle suggestions if needed (could be appended to chat or shown in UI)
+      // For now we just log them or rely on the message.
+      if (data.suggestions && data.suggestions.length > 0) {
+        console.log('AI Suggestions:', data.suggestions);
       }
+
     } catch (error) {
       console.error('Error in AI chat:', error);
       const errorMessage: ChatMessage = {
@@ -374,7 +381,7 @@ export function EmailBeautifyDialog({
         chatInputRef.current?.focus();
       }, 100);
     }
-  }, [currentMessage, htmlContent, aiEnhancements, subject, selectedTemplate, orgName]);
+  }, [currentMessage, htmlContent, chatMessages, subject, message, orgName]);
 
   const TemplateSelector = () => (
     <div className="space-y-2">
@@ -386,11 +393,10 @@ export function EmailBeautifyDialog({
         {availableTemplates.map((template) => (
           <Card
             key={template.id}
-            className={`cursor-pointer transition-all duration-200 hover:shadow-sm text-center py-0 ${
-              selectedTemplate === template.id
+            className={`cursor-pointer transition-all duration-200 hover:shadow-sm text-center py-0 ${selectedTemplate === template.id
                 ? 'ring-2 ring-blue-500 bg-blue-50 shadow-sm'
                 : 'hover:bg-gray-50 border-gray-200'
-            }`}
+              }`}
             onClick={() => setSelectedTemplate(template.id)}
           >
             <CardContent className="p-2">
@@ -498,7 +504,7 @@ export function EmailBeautifyDialog({
           {/* Left Panel - Controls */}
           <div className="lg:col-span-1 space-y-4 lg:space-y-6 overflow-y-auto max-h-60 lg:max-h-none">
             <TemplateSelector />
-            
+
             <div className="space-y-3">
               <div className="flex gap-2">
                 <Button
@@ -520,7 +526,7 @@ export function EmailBeautifyDialog({
                     </>
                   )}
                 </Button>
-                
+
                 {htmlContent && (
                   <Button
                     onClick={() => setShowAIChat(!showAIChat)}
@@ -543,7 +549,7 @@ export function EmailBeautifyDialog({
               </Alert>
             )}
 
-            <AIChatInterface 
+            <AIChatInterface
               showAIChat={showAIChat}
               setShowAIChat={setShowAIChat}
               chatMessages={chatMessages}
@@ -553,14 +559,14 @@ export function EmailBeautifyDialog({
               handleSendChatMessage={handleSendChatMessage}
               chatInputRef={chatInputRef}
             />
-            
+
             <EnhancementsSummary />
           </div>
 
           {/* Right Panel - Preview */}
           <div className="lg:col-span-2 flex flex-col overflow-hidden flex-1">
             <PreviewControls />
-            
+
             <div className="flex-1 overflow-hidden">
               <Tabs defaultValue="preview" className="h-full flex flex-col">
                 <TabsList className="grid w-full grid-cols-2">
@@ -573,12 +579,11 @@ export function EmailBeautifyDialog({
                     HTML Source
                   </TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="preview" className="flex-1 mt-4">
-                  <div 
-                    className={`border rounded-lg overflow-hidden transition-all ${
-                      viewMode === 'mobile' ? 'max-w-sm mx-auto' : 'w-full'
-                    }`}
+                  <div
+                    className={`border rounded-lg overflow-hidden transition-all ${viewMode === 'mobile' ? 'max-w-sm mx-auto' : 'w-full'
+                      }`}
                     style={{ height: 'calc(100vh - 300px)' }}
                   >
                     {htmlContent ? (
@@ -604,9 +609,9 @@ export function EmailBeautifyDialog({
                     )}
                   </div>
                 </TabsContent>
-                
+
                 <TabsContent value="code" className="flex-1 mt-4">
-                  <div 
+                  <div
                     className="border rounded-lg overflow-hidden"
                     style={{ height: 'calc(100vh - 300px)' }}
                   >
@@ -633,8 +638,8 @@ export function EmailBeautifyDialog({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleConfirm} 
+            <Button
+              onClick={handleConfirm}
               disabled={!htmlContent || isLoading}
               className="flex items-center"
             >
