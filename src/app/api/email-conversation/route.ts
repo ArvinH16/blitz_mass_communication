@@ -9,7 +9,7 @@ const openai = new OpenAI({
 // Helper to strip markdown code blocks from JSON response
 function cleanJsonResponse(response: string): string {
     // Remove ```json and ``` or just ``` markers
-    let cleaned = response.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+    const cleaned = response.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
     return cleaned.trim();
 }
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { message, conversationHistory, currentHtml, originalContent, isInitialGreeting } = body;
+        const { message, conversationHistory, currentHtml, originalContent } = body;
 
         if (!message && !conversationHistory) {
             return NextResponse.json(
