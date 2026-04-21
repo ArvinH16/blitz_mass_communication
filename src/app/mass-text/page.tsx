@@ -1093,7 +1093,7 @@ export default function MassTextPage() {
 
   return (
     <AnimatedBackground>
-      <div className="container mx-auto p-4 max-w-4xl">
+      <div className={`container mx-auto p-4 ${viewMode === 'contacts-management' ? 'max-w-6xl' : 'max-w-4xl'}`}>
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Mass Communication</h1>
           <div className="flex space-x-2">
@@ -1776,26 +1776,26 @@ export default function MassTextPage() {
                   )}
 
                   {/* Contact listing with edit/delete controls */}
-                  <div className="border rounded-md overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
+                  <div className="border rounded-md overflow-x-auto">
+                    <table className="min-w-[640px] w-full divide-y divide-gray-200 table-auto">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[160px]">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {originalContacts.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                            <td colSpan={4} className="px-4 py-4 text-center text-sm text-gray-500">
                               No members found. Add some members to get started.
                             </td>
                           </tr>
                         ) : filteredContacts.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                            <td colSpan={4} className="px-4 py-4 text-center text-sm text-gray-500">
                               No members match your current filters.
                             </td>
                           </tr>
@@ -1803,7 +1803,7 @@ export default function MassTextPage() {
                           filteredContacts.map((contact) => (
                             <tr
                               key={`contact-${contact.id ?? contact.phone}`}
-                              className={`${contact.opted_out ? 'bg-yellow-50' : ''} cursor-pointer hover:bg-gray-50 transition-colors`}
+                              className={`${contact.opted_out ? 'bg-yellow-50' : ''} cursor-pointer hover:bg-gray-50 transition-colors align-top`}
                               onClick={() => {
                                 if (contact.id) {
                                   setSelectedMember(contact)
@@ -1811,10 +1811,10 @@ export default function MassTextPage() {
                                 }
                               }}
                             >
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              <td className="px-4 py-4 text-sm font-medium text-gray-900 break-words">
                                 {contact.name}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">
                                 {contact.opted_out ? (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -1831,69 +1831,75 @@ export default function MassTextPage() {
                                   contact.phone
                                 )}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-4 py-4 text-sm text-gray-500 break-all">
                                 {contact.email || "-"}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <td className="px-4 py-4 text-right text-sm font-medium w-[160px]">
                                 <div className="flex justify-end space-x-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleEditContact(contact)
-                                    }}
-                                  >
-                                    <PencilIcon className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={contact.opted_out
-                                      ? "text-green-500 hover:text-green-700"
-                                      : "text-yellow-500 hover:text-yellow-700"}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      if (contact.id) {
-                                        handleToggleOptOut(contact.id, contact.opted_out || false)
-                                      }
-                                    }}
-                                  >
-                                    {contact.opted_out ? (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="flex items-center">
-                                            <CheckCircle2 className="h-4 w-4" />
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Opt this contact back in</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    ) : (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="flex items-center">
-                                            <AlertTriangleIcon className="h-4 w-4" />
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Mark as opted out</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    )}
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-red-500 hover:text-red-700"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleDeleteContact(contact)
-                                    }}
-                                  >
-                                    <TrashIcon className="h-4 w-4" />
-                                  </Button>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        aria-label="Edit member"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleEditContact(contact)
+                                        }}
+                                      >
+                                        <PencilIcon className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Edit member</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        aria-label={contact.opted_out ? 'Opt back in' : 'Mark as opted out'}
+                                        className={contact.opted_out
+                                          ? "text-green-500 hover:text-green-700"
+                                          : "text-yellow-500 hover:text-yellow-700"}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          if (contact.id) {
+                                            handleToggleOptOut(contact.id, contact.opted_out || false)
+                                          }
+                                        }}
+                                      >
+                                        {contact.opted_out ? (
+                                          <CheckCircle2 className="h-4 w-4" />
+                                        ) : (
+                                          <AlertTriangleIcon className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>{contact.opted_out ? 'Opt this contact back in' : 'Mark as opted out'}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        aria-label="Delete member"
+                                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteContact(contact)
+                                        }}
+                                      >
+                                        <TrashIcon className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Delete member</p>
+                                    </TooltipContent>
+                                  </Tooltip>
                                 </div>
                               </td>
                             </tr>
