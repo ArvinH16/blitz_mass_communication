@@ -415,57 +415,68 @@ RESPOND WITH ONLY THIS JSON FORMAT (no other text):
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { 
-          role: "system", 
-          content: "You are an expert email designer and copywriter. You help create beautiful, professional HTML email layouts. IMPORTANT: Always respond with ONLY valid JSON in the exact format specified. Do not include any explanations, markdown formatting, or additional text outside the JSON object." 
+        {
+          role: "system",
+          content: "You are an expert email designer and copywriter. You help create beautiful, professional HTML email layouts. IMPORTANT: Always respond with ONLY valid JSON in the exact format specified. Do not include any explanations, markdown formatting, or additional text outside the JSON object."
         },
         { role: "user", content: enhancementPrompt }
       ],
       temperature: 0.7,
       max_tokens: 3000, // Increased from 1500 to handle larger emails
+      response_format: { type: "json_object" }, // Enforce JSON mode for reliable parsing
     });
-    
+
     const aiResponse = completion.choices[0]?.message?.content || '{}';
-    
+
     let aiEnhancements;
     try {
       // Clean up the response to ensure it's valid JSON
       let cleanedResponse = aiResponse.trim();
-      
+
       // Remove markdown code blocks if present
       if (cleanedResponse.startsWith('```json')) {
         cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
       } else if (cleanedResponse.startsWith('```')) {
         cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
       }
-      
+
       // Try to find JSON object in the response if it contains other text
       const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         cleanedResponse = jsonMatch[0];
       }
-      
-      // Validate the response contains required fields before parsing
-      if (!cleanedResponse.includes('"formattedContent"')) {
-        throw new Error('Response missing required formattedContent field');
-      }
-      
+
       aiEnhancements = JSON.parse(cleanedResponse);
-      
+
       // Validate the parsed object has required fields
-      if (!aiEnhancements.formattedContent) {
+      if (!aiEnhancements || !aiEnhancements.formattedContent) {
         throw new Error('Parsed response missing formattedContent');
       }
-      
+
     } catch (parseError) {
       console.error('JSON parsing error:', parseError);
       console.error('Raw AI response:', aiResponse);
-      
-      // Fallback if AI response isn't valid JSON
+
+      // Fallback: build sensible HTML content from the original message
+      // Split into paragraphs by blank lines so we don't collapse intentional spacing,
+      // and promote the first non-empty line to a subheading for visual hierarchy.
+      const paragraphs = message
+        .split(/\n\s*\n/)
+        .map((p: string) => p.trim())
+        .filter((p: string) => p.length > 0);
+
+      const formattedParagraphs = paragraphs.map((para: string, idx: number) => {
+        const withBreaks = para.replace(/\n/g, '<br>');
+        if (idx === 0 && paragraphs.length > 1 && para.length < 80) {
+          return `<h2>${withBreaks}</h2>`;
+        }
+        return `<p>${withBreaks}</p>`;
+      }).join('\n');
+
       aiEnhancements = {
         enhancedSubject: subject,
         subtitle: '',
-        formattedContent: `<p>${message.replace(/\n/g, '</p><p>')}</p>`,
+        formattedContent: formattedParagraphs || `<p>${message}</p>`,
         signature: orgName || 'Your Organization'
       };
     }
