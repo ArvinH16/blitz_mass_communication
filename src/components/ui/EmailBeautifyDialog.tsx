@@ -73,8 +73,9 @@ interface AIChatInterfaceProps {
   currentMessage: string;
   setCurrentMessage: (message: string) => void;
   isChatLoading: boolean;
-  handleSendChatMessage: () => void;
+  handleSendChatMessage: (overrideMessage?: string) => void;
   chatInputRef: React.RefObject<HTMLInputElement | null>;
+  suggestions: string[];
 }
 
 const AIChatInterface = React.memo(({
@@ -85,7 +86,8 @@ const AIChatInterface = React.memo(({
   setCurrentMessage,
   isChatLoading,
   handleSendChatMessage,
-  chatInputRef
+  chatInputRef,
+  suggestions
 }: AIChatInterfaceProps) => {
   if (!showAIChat) return null;
 
@@ -155,6 +157,24 @@ const AIChatInterface = React.memo(({
           )}
         </div>
 
+        {/* Suggested follow-ups from the AI */}
+        {suggestions.length > 0 && !isChatLoading && (
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map((suggestion, idx) => (
+              <Button
+                key={`${suggestion}-${idx}`}
+                variant="outline"
+                size="sm"
+                className="text-xs h-auto py-1 px-2"
+                onClick={() => handleSendChatMessage(suggestion)}
+                disabled={isChatLoading}
+              >
+                {suggestion}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Chat Input */}
         <div className="flex space-x-2">
           <Input
@@ -174,7 +194,7 @@ const AIChatInterface = React.memo(({
             autoFocus={showAIChat}
           />
           <Button
-            onClick={handleSendChatMessage}
+            onClick={() => handleSendChatMessage()}
             disabled={!currentMessage.trim() || isChatLoading}
             size="sm"
             className="px-3"
@@ -210,6 +230,7 @@ export function EmailBeautifyDialog({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [chatSuggestions, setChatSuggestions] = useState<string[]>([]);
   const chatInputRef = useRef<HTMLInputElement>(null);
 
   // Load available templates
@@ -228,6 +249,18 @@ export function EmailBeautifyDialog({
 
     if (isOpen) {
       loadTemplates();
+    }
+  }, [isOpen]);
+
+  // Reset chat + beautify state when the dialog closes so the next open starts fresh
+  useEffect(() => {
+    if (!isOpen) {
+      setShowAIChat(false);
+      setChatMessages([]);
+      setCurrentMessage('');
+      setIsChatLoading(false);
+      setChatSuggestions([]);
+      setError(null);
     }
   }, [isOpen]);
 
@@ -296,13 +329,18 @@ export function EmailBeautifyDialog({
     }
   };
 
-  const handleSendChatMessage = useCallback(async () => {
-    if (!currentMessage.trim() || !htmlContent) return;
+  const handleSendChatMessage = useCallback(async (overrideMessage?: string) => {
+    const messageToSend = (overrideMessage ?? currentMessage).trim();
+    if (!messageToSend) return;
+    if (!htmlContent) {
+      setError('Please beautify your email first before using chat.');
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: currentMessage,
+      content: messageToSend,
       timestamp: new Date()
     };
 
@@ -310,6 +348,7 @@ export function EmailBeautifyDialog({
     const newHistory = [...chatMessages, userMessage];
     setChatMessages(newHistory);
     setCurrentMessage('');
+    setChatSuggestions([]);
     setIsChatLoading(true);
 
     // Maintain focus on input after clearing message
@@ -324,7 +363,7 @@ export function EmailBeautifyDialog({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: currentMessage,
+          message: messageToSend,
           conversationHistory: newHistory.map(m => ({
             role: m.role,
             content: m.content
@@ -339,7 +378,8 @@ export function EmailBeautifyDialog({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get AI response');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData?.message || `Failed to get AI response (${response.status})`);
       }
 
       const data = await response.json();
@@ -347,7 +387,7 @@ export function EmailBeautifyDialog({
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.message, // Use the conversational response
+        content: data.message || 'Here are the changes.',
         timestamp: new Date()
       };
 
@@ -359,10 +399,11 @@ export function EmailBeautifyDialog({
         setPreviewKey(prev => prev + 1);
       }
 
-      // Handle suggestions if needed (could be appended to chat or shown in UI)
-      // For now we just log them or rely on the message.
-      if (data.suggestions && data.suggestions.length > 0) {
-        console.log('AI Suggestions:', data.suggestions);
+      // Surface suggestions in the UI as quick-reply chips
+      if (Array.isArray(data.suggestions)) {
+        setChatSuggestions(data.suggestions.slice(0, 3));
+      } else {
+        setChatSuggestions([]);
       }
 
     } catch (error) {
@@ -370,7 +411,9 @@ export function EmailBeautifyDialog({
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: error instanceof Error
+          ? `Sorry, I encountered an error: ${error.message}. Please try again.`
+          : 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date()
       };
       setChatMessages(prev => [...prev, errorMessage]);
@@ -558,6 +601,7 @@ export function EmailBeautifyDialog({
               isChatLoading={isChatLoading}
               handleSendChatMessage={handleSendChatMessage}
               chatInputRef={chatInputRef}
+              suggestions={chatSuggestions}
             />
 
             <EnhancementsSummary />

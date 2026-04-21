@@ -132,6 +132,40 @@ export default function MassTextPage() {
   const [isBeautifiedEmail, setIsBeautifiedEmail] = useState(false)
   const [selectedMember, setSelectedMember] = useState<Contact | null>(null)
   const [showProfileDialog, setShowProfileDialog] = useState(false)
+  const [contactSearch, setContactSearch] = useState("")
+  const [contactStatusFilter, setContactStatusFilter] = useState<'all' | 'active' | 'opted-out'>('all')
+  const [contactSortBy, setContactSortBy] = useState<'name' | 'recent'>('name')
+  const [showEditContactDialog, setShowEditContactDialog] = useState(false)
+  const [contactToDelete, setContactToDelete] = useState<Contact | null>(null)
+  const [contactsFeedback, setContactsFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // Auto-dismiss contacts feedback after a short delay
+  useEffect(() => {
+    if (!contactsFeedback) return
+    const timer = setTimeout(() => setContactsFeedback(null), 3500)
+    return () => clearTimeout(timer)
+  }, [contactsFeedback])
+
+  // Derived filtered + sorted contacts for the management view
+  const filteredContacts = (() => {
+    const query = contactSearch.trim().toLowerCase()
+    const filtered = originalContacts.filter((c) => {
+      if (contactStatusFilter === 'active' && c.opted_out) return false
+      if (contactStatusFilter === 'opted-out' && !c.opted_out) return false
+      if (!query) return true
+      return (
+        (c.name || '').toLowerCase().includes(query) ||
+        (c.email || '').toLowerCase().includes(query) ||
+        (c.phone || '').toLowerCase().includes(query)
+      )
+    })
+    if (contactSortBy === 'name') {
+      filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    } else {
+      filtered.sort((a, b) => (b.id || 0) - (a.id || 0))
+    }
+    return filtered
+  })()
 
   // Add authentication check and fetch org info
   useEffect(() => {
@@ -556,14 +590,18 @@ export default function MassTextPage() {
     }
   };
 
-  const handleDeleteContact = (index: number) => {
-    // If in contacts management mode, delete from database
-    if (viewMode === 'contacts-management' && originalContacts[index]?.id) {
-      setDeletingContactId(originalContacts[index].id!);
+  const handleDeleteContact = (indexOrContact: number | Contact) => {
+    // Resolve the target contact from either an index (legacy) or a contact object
+    const target =
+      typeof indexOrContact === 'number' ? originalContacts[indexOrContact] : indexOrContact;
+
+    if (viewMode === 'contacts-management' && target?.id) {
+      setContactToDelete(target);
+      setDeletingContactId(target.id);
       setIsDeleting(true);
-    } else {
+    } else if (typeof indexOrContact === 'number') {
       const updatedContacts = [...contacts];
-      updatedContacts.splice(index, 1);
+      updatedContacts.splice(indexOrContact, 1);
       setContacts(updatedContacts);
     }
   }
@@ -584,10 +622,12 @@ export default function MassTextPage() {
         throw new Error(data.message || 'Failed to delete contact');
       }
 
-      // Refresh the contacts list
       await fetchContactsFromSupabase();
+      const deletedName = contactToDelete?.name || 'Member';
       setIsDeleting(false);
       setDeletingContactId(null);
+      setContactToDelete(null);
+      setContactsFeedback({ type: 'success', message: `${deletedName} deleted successfully` });
 
     } catch (error) {
       console.error('Error deleting contact:', error);
@@ -595,22 +635,35 @@ export default function MassTextPage() {
       setError(errorMessage);
       setIsDeleting(false);
       setDeletingContactId(null);
+      setContactToDelete(null);
+      setContactsFeedback({ type: 'error', message: errorMessage });
     }
   };
 
-  // Function to handle editing a contact
+  // Function to handle editing a contact — opens the edit dialog
   const handleEditContact = (contact: Contact) => {
-    setEditingContact(contact);
+    setEditingContact({ ...contact });
+    setShowEditContactDialog(true);
   };
 
   // Function to save edited contact
   const handleSaveContact = async () => {
     if (!editingContact || !editingContact.id) return;
 
+    const trimmedName = (editingContact.name || '').trim();
+    if (!trimmedName) {
+      setContactsFeedback({ type: 'error', message: 'Name cannot be empty' });
+      return;
+    }
+    if (!editingContact.phone || !editingContact.phone.trim()) {
+      setContactsFeedback({ type: 'error', message: 'Phone number cannot be empty' });
+      return;
+    }
+
     try {
       setError(null);
 
-      const nameParts = editingContact.name.split(' ');
+      const nameParts = trimmedName.split(/\s+/);
       const first_name = nameParts[0] || '';
       const last_name = nameParts.slice(1).join(' ') || '';
 
@@ -623,7 +676,7 @@ export default function MassTextPage() {
           id: editingContact.id,
           first_name,
           last_name,
-          email: editingContact.email,
+          email: editingContact.email ?? '',
           phone_number: editingContact.phone
         }),
       });
@@ -633,14 +686,16 @@ export default function MassTextPage() {
         throw new Error(data.message || 'Failed to update contact');
       }
 
-      // Refresh the contacts list
       await fetchContactsFromSupabase();
       setEditingContact(null);
+      setShowEditContactDialog(false);
+      setContactsFeedback({ type: 'success', message: `${trimmedName} updated successfully` });
 
     } catch (error) {
       console.error('Error updating contact:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update contact';
       setError(errorMessage);
+      setContactsFeedback({ type: 'error', message: errorMessage });
     }
   };
 
@@ -1597,16 +1652,28 @@ export default function MassTextPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4">
-                  <div className="flex justify-between items-center mb-2">
+                  {contactsFeedback && (
+                    <Alert variant={contactsFeedback.type === 'error' ? 'destructive' : 'default'}>
+                      {contactsFeedback.type === 'error' ? (
+                        <AlertCircle className="h-4 w-4" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      <AlertDescription>{contactsFeedback.message}</AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <label className="block text-sm font-medium">
-                      Members ({originalContacts.length})
+                      Members ({filteredContacts.length}
+                      {filteredContacts.length !== originalContacts.length && ` of ${originalContacts.length}`})
                     </label>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setIsAddingContact(!isAddingContact)}
                       >
+                        <PlusCircleIcon className="h-4 w-4 mr-1" />
                         Add Member
                       </Button>
                       <Button
@@ -1619,6 +1686,45 @@ export default function MassTextPage() {
                         Refresh
                       </Button>
                     </div>
+                  </div>
+
+                  {/* Search + filter controls */}
+                  <div className="flex flex-col md:flex-row gap-2">
+                    <Input
+                      value={contactSearch}
+                      onChange={(e) => setContactSearch(e.target.value)}
+                      placeholder="Search by name, email, or phone..."
+                      className="md:flex-1"
+                    />
+                    <select
+                      value={contactStatusFilter}
+                      onChange={(e) => setContactStatusFilter(e.target.value as 'all' | 'active' | 'opted-out')}
+                      className="border rounded-md px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="all">All statuses</option>
+                      <option value="active">Active only</option>
+                      <option value="opted-out">Opted out only</option>
+                    </select>
+                    <select
+                      value={contactSortBy}
+                      onChange={(e) => setContactSortBy(e.target.value as 'name' | 'recent')}
+                      className="border rounded-md px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="name">Sort by name</option>
+                      <option value="recent">Sort by recent</option>
+                    </select>
+                    {(contactSearch || contactStatusFilter !== 'all') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setContactSearch("")
+                          setContactStatusFilter('all')
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    )}
                   </div>
 
                   {isAddingContact && (
@@ -1687,162 +1793,108 @@ export default function MassTextPage() {
                               No members found. Add some members to get started.
                             </td>
                           </tr>
+                        ) : filteredContacts.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                              No members match your current filters.
+                            </td>
+                          </tr>
                         ) : (
-                          originalContacts.map((contact, index) => (
+                          filteredContacts.map((contact) => (
                             <tr
-                              key={`contact-${index}`}
+                              key={`contact-${contact.id ?? contact.phone}`}
                               className={`${contact.opted_out ? 'bg-yellow-50' : ''} cursor-pointer hover:bg-gray-50 transition-colors`}
                               onClick={() => {
-                                if (!editingContact?.id || editingContact.id !== contact.id) {
-                                  if (contact.id) {
-                                    setSelectedMember(contact)
-                                    setShowProfileDialog(true)
-                                  }
+                                if (contact.id) {
+                                  setSelectedMember(contact)
+                                  setShowProfileDialog(true)
                                 }
                               }}
                             >
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {editingContact?.id === contact.id ? (
-                                  <Input
-                                    value={editingContact?.name || ""}
-                                    onChange={(e) => {
-                                      if (editingContact) {
-                                        setEditingContact({
-                                          ...editingContact,
-                                          name: e.target.value
-                                        });
-                                      }
-                                    }}
-                                  />
+                                {contact.name}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {contact.opted_out ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex items-center">
+                                        <AlertTriangleIcon className="h-4 w-4 mr-1 text-yellow-500" />
+                                        <span className="line-through text-yellow-600">{contact.phone}</span>
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>This contact has opted out of messages</p>
+                                    </TooltipContent>
+                                  </Tooltip>
                                 ) : (
-                                  contact.name
+                                  contact.phone
                                 )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {editingContact?.id === contact.id ? (
-                                  <Input
-                                    value={editingContact?.phone || ""}
-                                    onChange={(e) => {
-                                      if (editingContact) {
-                                        setEditingContact({
-                                          ...editingContact,
-                                          phone: e.target.value
-                                        });
+                                {contact.email || "-"}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div className="flex justify-end space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleEditContact(contact)
+                                    }}
+                                  >
+                                    <PencilIcon className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={contact.opted_out
+                                      ? "text-green-500 hover:text-green-700"
+                                      : "text-yellow-500 hover:text-yellow-700"}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (contact.id) {
+                                        handleToggleOptOut(contact.id, contact.opted_out || false)
                                       }
                                     }}
-                                  />
-                                ) : (
-                                  <>
-                                    {contact.opted_out && (
+                                  >
+                                    {contact.opted_out ? (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <span className="inline-flex items-center">
-                                            <AlertTriangleIcon className="h-4 w-4 mr-1 text-yellow-500" />
-                                            <span className="line-through text-yellow-600">{contact.phone}</span>
+                                          <span className="flex items-center">
+                                            <CheckCircle2 className="h-4 w-4" />
                                           </span>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                          <p>This contact has opted out of messages</p>
+                                          <p>Opt this contact back in</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    ) : (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="flex items-center">
+                                            <AlertTriangleIcon className="h-4 w-4" />
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Mark as opted out</p>
                                         </TooltipContent>
                                       </Tooltip>
                                     )}
-                                    {!contact.opted_out && contact.phone}
-                                  </>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {editingContact?.id === contact.id ? (
-                                  <Input
-                                    value={editingContact?.email || ""}
-                                    onChange={(e) => {
-                                      if (editingContact) {
-                                        setEditingContact({
-                                          ...editingContact,
-                                          email: e.target.value
-                                        });
-                                      }
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-500 hover:text-red-700"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteContact(contact)
                                     }}
-                                  />
-                                ) : (
-                                  contact.email || "-"
-                                )}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                {editingContact?.id === contact.id ? (
-                                  <div className="flex justify-end space-x-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => setEditingContact(null)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      onClick={handleSaveContact}
-                                    >
-                                      Save
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <div className="flex justify-end space-x-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleEditContact(contact)
-                                      }}
-                                    >
-                                      <PencilIcon className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant={contact.opted_out ? "outline" : "outline"}
-                                      size="sm"
-                                      className={contact.opted_out
-                                        ? "text-green-500 hover:text-green-700"
-                                        : "text-yellow-500 hover:text-yellow-700"}
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleToggleOptOut(contact.id!, contact.opted_out || false)
-                                      }}
-                                    >
-                                      {contact.opted_out
-                                        ? <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className="flex items-center">
-                                              <CheckCircle2 className="h-4 w-4" />
-                                            </span>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Opt this contact back in</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                        : <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className="flex items-center">
-                                              <AlertTriangleIcon className="h-4 w-4" />
-                                            </span>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Mark as opted out</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      }
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-red-500 hover:text-red-700"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleDeleteContact(index)
-                                      }}
-                                    >
-                                      <TrashIcon className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                )}
+                                  >
+                                    <TrashIcon className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -2311,7 +2363,8 @@ export default function MassTextPage() {
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
               <h3 className="text-xl font-semibold mb-2">Confirm Delete</h3>
               <p className="text-gray-700 mb-4">
-                Are you sure you want to delete this member? This action cannot be undone.
+                Are you sure you want to delete{' '}
+                <strong>{contactToDelete?.name || 'this member'}</strong>? This action cannot be undone.
               </p>
               <div className="flex justify-end space-x-2">
                 <Button
@@ -2319,6 +2372,7 @@ export default function MassTextPage() {
                   onClick={() => {
                     setIsDeleting(false);
                     setDeletingContactId(null);
+                    setContactToDelete(null);
                   }}
                 >
                   Cancel
@@ -2333,6 +2387,75 @@ export default function MassTextPage() {
             </div>
           </div>
         )}
+
+        {/* Edit contact dialog */}
+        <Dialog
+          open={showEditContactDialog}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowEditContactDialog(false)
+              setEditingContact(null)
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Member</DialogTitle>
+              <DialogDescription>
+                Update the member&apos;s contact information.
+              </DialogDescription>
+            </DialogHeader>
+            {editingContact && (
+              <div className="grid gap-3 py-2">
+                <div>
+                  <Label htmlFor="edit-contact-name">Name</Label>
+                  <Input
+                    id="edit-contact-name"
+                    value={editingContact.name || ""}
+                    onChange={(e) =>
+                      setEditingContact({ ...editingContact, name: e.target.value })
+                    }
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-contact-phone">Phone</Label>
+                  <Input
+                    id="edit-contact-phone"
+                    value={editingContact.phone || ""}
+                    onChange={(e) =>
+                      setEditingContact({ ...editingContact, phone: e.target.value })
+                    }
+                    placeholder="+1 (555) 123-4567"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-contact-email">Email</Label>
+                  <Input
+                    id="edit-contact-email"
+                    value={editingContact.email || ""}
+                    onChange={(e) =>
+                      setEditingContact({ ...editingContact, email: e.target.value })
+                    }
+                    placeholder="john.doe@example.com"
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowEditContactDialog(false)
+                  setEditingContact(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSaveContact}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Add the flagged contacts confirmation dialog */}
         {showFlaggedContactsDialog && previewData && (
