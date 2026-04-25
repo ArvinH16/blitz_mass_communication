@@ -21,6 +21,8 @@
     "@radix-ui/react-tabs": "^1.1.9",
     "@radix-ui/react-tooltip": "^1.2.6",
     "@supabase/supabase-js": "^2.49.4",
+    "@trigger.dev/react-hooks": "^4.4.4",
+    "@trigger.dev/sdk": "^4.4.4",
     "@types/nodemailer": "^6.4.17",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -55,6 +57,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.1.4",
+    "@trigger.dev/build": "^4.4.4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
