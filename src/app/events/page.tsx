@@ -1,8 +1,7 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,10 +14,20 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { createEvent, getOrgEvents, getEventAttendees } from "@/app/actions/events"
-import { Plus, Calendar, QrCode, Users, ExternalLink, RefreshCw } from "lucide-react"
+import { Plus, Calendar, QrCode, Users, ExternalLink, RefreshCw, ArrowLeft, Loader2, Copy, Check } from "lucide-react"
 import { QRCode } from 'react-qrcode-logo';
 import { Event } from "@/lib/supabase"
 import AnimatedBackground from "@/components/AnimatedBackground"
+
+interface AttendeeRecord {
+    id: number;
+    created_at: string;
+    org_members: {
+        first_name: string;
+        last_name: string;
+        phone_number: string;
+    }
+}
 
 export default function EventsPage() {
     const router = useRouter()
@@ -28,24 +37,13 @@ export default function EventsPage() {
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
     const [showCreateDialog, setShowCreateDialog] = useState(false)
     const [showDetailDialog, setShowDetailDialog] = useState(false)
+    const [copied, setCopied] = useState(false)
 
-    // Create Form State
     const [newEventName, setNewEventName] = useState("")
     const [newEventDate, setNewEventDate] = useState("")
     const [newEventDesc, setNewEventDesc] = useState("")
     const [creating, setCreating] = useState(false)
 
-
-    // Attendees State
-    interface AttendeeRecord {
-        id: number;
-        created_at: string;
-        org_members: {
-            first_name: string;
-            last_name: string;
-            phone_number: string;
-        }
-    }
     const [attendees, setAttendees] = useState<AttendeeRecord[]>([])
     const [loadingAttendees, setLoadingAttendees] = useState(false)
 
@@ -116,7 +114,6 @@ export default function EventsPage() {
             setNewEventName("");
             setNewEventDate("");
             setNewEventDesc("");
-            // Refresh events
             fetchEvents(orgInfo.id);
         }
     }
@@ -127,204 +124,318 @@ export default function EventsPage() {
         loadAttendees(event.id);
     }
 
-    // Helper to get Check-in URL
     const getCheckInUrl = (code: string) => {
-        // Allow overriding the base URL via environment variable (useful for ngrok/tunneling)
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+        const baseUrl =
+            process.env.NEXT_PUBLIC_BASE_URL ||
+            (typeof window !== 'undefined' ? window.location.origin : '');
         return `${baseUrl}/check-in/${code}`;
+    }
+
+    const handleCopy = (url: string) => {
+        navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+    }
+
+    const formatEventDate = (date: string) => {
+        const d = new Date(date);
+        return {
+            date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            relative: getRelative(d),
+        };
+    }
+
+    const getRelative = (d: Date) => {
+        const diff = d.getTime() - Date.now();
+        const days = Math.round(diff / (1000 * 60 * 60 * 24));
+        if (days === 0) return 'Today';
+        if (days === 1) return 'Tomorrow';
+        if (days === -1) return 'Yesterday';
+        if (days > 0 && days < 7) return `In ${days} days`;
+        if (days < 0 && days > -7) return `${-days} days ago`;
+        return null;
     }
 
     return (
         <AnimatedBackground>
-            <div className="min-h-screen p-8">
-                <div className="max-w-6xl mx-auto space-y-8 relative z-10">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                                Events
-                            </h1>
-                            <p className="text-gray-400 mt-2">Manage your organization&apos;s events and attendance.</p>
-                        </div>
-                        <Button onClick={() => setShowCreateDialog(true)} className="bg-white text-black hover:bg-gray-200">
-                            <Plus className="mr-2 h-4 w-4" /> Create Event
+            <div className="mx-auto w-full max-w-6xl px-6 py-8 sm:py-12">
+                {/* Header */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push('/mass-text')}
+                            className="-ml-2 mb-2 text-muted-foreground hover:text-foreground"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Dashboard
                         </Button>
+                        <h1 className="text-3xl font-semibold tracking-tight">Events</h1>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Run events with QR check-in and live attendance.
+                        </p>
                     </div>
+                    <Button onClick={() => setShowCreateDialog(true)} size="lg">
+                        <Plus className="h-4 w-4" />
+                        Create event
+                    </Button>
+                </div>
 
-                    {/* Event List */}
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {loading ? (
-                            <p className="text-gray-500">Loading events...</p>
-                        ) : events.length === 0 ? (
-                            <Card className="col-span-full border-gray-800 bg-gray-900/50 backdrop-blur-sm">
-                                <CardContent className="flex flex-col items-center justify-center py-12 text-gray-400">
-                                    <Calendar className="h-12 w-12 mb-4 opacity-50" />
-                                    <p>No events found. Create your first event!</p>
-                                </CardContent>
-                            </Card>
-                        ) : (
-                            events.map(event => (
-                                <Card key={event.id} className="border-gray-800 bg-gray-900/40 hover:bg-gray-900/60 backdrop-blur-sm transition-all duration-300 cursor-pointer group hover:shadow-lg hover:shadow-gray-900/20" onClick={() => openEventDetails(event)}>
-                                    <CardHeader>
-                                        <div className="flex justify-between items-start">
-                                            <CardTitle className="text-xl text-white group-hover:text-blue-400 transition-colors">{event.name}</CardTitle>
-                                            <Calendar className="h-4 w-4 text-gray-500" />
-                                        </div>
-                                        <CardDescription>
-                                            {new Date(event.event_date).toLocaleDateString()} at {new Date(event.event_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-sm text-gray-400 truncate">{event.description || "No description"}</p>
-                                    </CardContent>
-                                    <CardFooter>
-                                        <Button variant="outline" className="w-full border-gray-700 hover:bg-gray-800 bg-transparent text-gray-300">
-                                            View Details
-                                        </Button>
-                                    </CardFooter>
-                                </Card>
-                            ))
-                        )}
-                    </div>
-
-                    {/* Create Event Dialog */}
-                    <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                        <DialogContent className="bg-gray-900 border-gray-800 text-white sm:max-w-[425px]">
-                            <DialogHeader>
-                                <DialogTitle>Create New Event</DialogTitle>
-                                <DialogDescription>Add a new event for your organization.</DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="name">Event Name</Label>
-                                    <Input
-                                        id="name"
-                                        value={newEventName}
-                                        onChange={e => setNewEventName(e.target.value)}
-                                        className="bg-gray-800 border-gray-700 text-white placeholder-gray-500"
-                                        placeholder="e.g. Weekly Meeting"
-                                    />
+                {/* Events grid */}
+                <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {loading ? (
+                        <div className="col-span-full flex items-center justify-center py-12">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : events.length === 0 ? (
+                        <div className="col-span-full">
+                            <div className="rounded-2xl border border-dashed border-border bg-card/50 p-12 text-center">
+                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-primary">
+                                    <Calendar className="h-5 w-5" />
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="date">Date & Time</Label>
-                                    <Input
-                                        id="date"
-                                        type="datetime-local"
-                                        value={newEventDate}
-                                        onChange={e => setNewEventDate(e.target.value)}
-                                        className="bg-gray-800 border-gray-700 text-white"
-                                    />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="desc">Description</Label>
-                                    <Input
-                                        id="desc"
-                                        value={newEventDesc}
-                                        onChange={e => setNewEventDesc(e.target.value)}
-                                        className="bg-gray-800 border-gray-700 text-white placeholder-gray-500"
-                                        placeholder="Optional description"
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button variant="ghost" onClick={() => setShowCreateDialog(false)} className="hover:bg-gray-800 text-gray-300">Cancel</Button>
-                                <Button onClick={handleCreateEvent} disabled={creating} className="bg-white text-black hover:bg-gray-200">
-                                    {creating ? 'Creating...' : 'Create Event'}
+                                <h3 className="mt-4 text-base font-semibold">No events yet</h3>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Create your first event to start tracking attendance.
+                                </p>
+                                <Button className="mt-6" onClick={() => setShowCreateDialog(true)}>
+                                    <Plus className="h-4 w-4" />
+                                    Create event
                                 </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                            </div>
+                        </div>
+                    ) : (
+                        events.map((event) => {
+                            const f = formatEventDate(event.event_date);
+                            return (
+                                <button
+                                    key={event.id}
+                                    onClick={() => openEventDetails(event)}
+                                    className="group flex flex-col rounded-2xl border border-border/80 bg-card p-5 text-left shadow-soft transition-all hover:border-primary/40 hover:shadow-elevated"
+                                >
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-primary">
+                                            <Calendar className="h-5 w-5" />
+                                        </div>
+                                        {f.relative && (
+                                            <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-primary">
+                                                {f.relative}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3 className="mt-4 text-lg font-semibold tracking-tight group-hover:text-primary transition-colors">
+                                        {event.name}
+                                    </h3>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        {f.date} · {f.time}
+                                    </p>
+                                    <p className="mt-3 line-clamp-2 text-sm text-foreground/70">
+                                        {event.description || 'No description'}
+                                    </p>
+                                    <div className="mt-4 flex items-center text-xs font-medium text-primary group-hover:translate-x-0.5 transition-transform">
+                                        View details
+                                        <span className="ml-1">→</span>
+                                    </div>
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
 
-                    {/* Event Detail Dialog */}
-                    <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-                        <DialogContent className="bg-gray-950/95 backdrop-blur-xl border-gray-800 text-white sm:max-w-[800px] max-h-[85vh] overflow-y-auto w-full">
-                            {selectedEvent && (
-                                <>
-                                    <DialogHeader>
-                                        <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">{selectedEvent.name}</DialogTitle>
-                                        <DialogDescription className="text-lg text-gray-400">
-                                            {new Date(selectedEvent.event_date).toLocaleDateString()} • {new Date(selectedEvent.event_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </DialogDescription>
-                                    </DialogHeader>
+                {/* Create Event Dialog */}
+                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Create new event</DialogTitle>
+                            <DialogDescription>
+                                Set up an event and we&apos;ll generate a QR check-in link.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="name">Event name</Label>
+                                <Input
+                                    id="name"
+                                    value={newEventName}
+                                    onChange={(e) => setNewEventName(e.target.value)}
+                                    placeholder="e.g. Spring Kickoff"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="date">Date & time</Label>
+                                <Input
+                                    id="date"
+                                    type="datetime-local"
+                                    value={newEventDate}
+                                    onChange={(e) => setNewEventDate(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="desc">Description (optional)</Label>
+                                <Input
+                                    id="desc"
+                                    value={newEventDesc}
+                                    onChange={(e) => setNewEventDesc(e.target.value)}
+                                    placeholder="What's it about?"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="ghost" onClick={() => setShowCreateDialog(false)}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleCreateEvent} disabled={creating}>
+                                {creating ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Creating…
+                                    </>
+                                ) : (
+                                    'Create event'
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
-                                    <div className="grid md:grid-cols-2 gap-8 py-4">
-                                        {/* Link & QR Section */}
-                                        <div className="flex flex-col items-center space-y-4 p-6 bg-white/5 rounded-xl border border-gray-800/50 backdrop-blur-sm">
-                                            <h3 className="font-semibold text-gray-300 flex items-center gap-2">
-                                                <QrCode className="w-4 h-4" /> Check-in QR Code
-                                            </h3>
-                                            <div className="bg-white p-4 rounded-lg shadow-lg">
-                                                <QRCode
-                                                    value={getCheckInUrl(selectedEvent.code)}
-                                                    size={200}
-                                                    logoWidth={40}
-                                                    removeQrCodeBehindLogo
-                                                />
-                                            </div>
-                                            <div className="text-center w-full space-y-2">
-                                                <p className="text-xs text-gray-500">Scan to check in or use the link below</p>
-                                                <code className="block w-full bg-black/50 p-2 rounded text-xs break-all border border-gray-800 text-gray-400 font-mono">
+                {/* Event Detail Dialog */}
+                <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+                    <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[860px]">
+                        {selectedEvent && (
+                            <>
+                                <DialogHeader>
+                                    <DialogTitle className="text-2xl">{selectedEvent.name}</DialogTitle>
+                                    <DialogDescription>
+                                        {formatEventDate(selectedEvent.event_date).date} ·{' '}
+                                        {formatEventDate(selectedEvent.event_date).time}
+                                    </DialogDescription>
+                                </DialogHeader>
+
+                                <div className="grid gap-6 py-2 md:grid-cols-2">
+                                    {/* QR */}
+                                    <div className="flex flex-col items-center gap-4 rounded-2xl border border-border/80 bg-accent/30 p-6">
+                                        <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                                            <QrCode className="h-4 w-4" /> Check-in QR
+                                        </div>
+                                        <div className="rounded-xl bg-white p-4 shadow-soft">
+                                            <QRCode
+                                                value={getCheckInUrl(selectedEvent.code)}
+                                                size={200}
+                                                logoWidth={40}
+                                                removeQrCodeBehindLogo
+                                            />
+                                        </div>
+                                        <div className="w-full space-y-2">
+                                            <p className="text-center text-xs text-muted-foreground">
+                                                Scan to check in or share the link below
+                                            </p>
+                                            <div className="flex items-center gap-2 rounded-lg border border-border bg-background p-2">
+                                                <code className="flex-1 truncate font-mono text-xs text-muted-foreground">
                                                     {getCheckInUrl(selectedEvent.code)}
                                                 </code>
-                                                <Button size="sm" variant="outline" className="w-full text-xs border-gray-700 hover:bg-gray-800 bg-transparent text-gray-300" onClick={() => window.open(getCheckInUrl(selectedEvent.code), '_blank')}>
-                                                    <ExternalLink className="w-3 h-3 mr-2" /> Open Check-in Page
+                                                <Button
+                                                    size="icon-sm"
+                                                    variant="ghost"
+                                                    onClick={() => handleCopy(getCheckInUrl(selectedEvent.code))}
+                                                >
+                                                    {copied ? (
+                                                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                                    ) : (
+                                                        <Copy className="h-3.5 w-3.5" />
+                                                    )}
                                                 </Button>
                                             </div>
-                                        </div>
-
-                                        {/* Attendees Section */}
-                                        <div className="flex flex-col space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className="font-semibold text-gray-300 flex items-center gap-2">
-                                                    <Users className="w-4 h-4" /> Attendees ({attendees.length})
-                                                </h3>
-                                                <Button size="sm" variant="ghost" onClick={refreshAttendees} disabled={loadingAttendees} className="h-8 w-8 p-0 text-gray-400 hover:text-white">
-                                                    <RefreshCw className={`w-3 h-3 ${loadingAttendees ? 'animate-spin' : ''}`} />
-                                                </Button>
-                                            </div>
-
-                                            <div className="flex-1 bg-white/5 rounded-xl border border-gray-800/50 overflow-hidden flex flex-col h-[350px] backdrop-blur-sm">
-                                                {loadingAttendees ? (
-                                                    <div className="flex-1 flex items-center justify-center text-gray-500">Loading attendees...</div>
-                                                ) : attendees.length === 0 ? (
-                                                    <div className="flex-1 flex flex-col items-center justify-center text-gray-500 text-sm p-8 text-center space-y-2">
-                                                        <Users className="h-8 w-8 opacity-20" />
-                                                        <p>No attendees yet.</p>
-                                                        <p className="text-xs opacity-50">Share the QR code to start tracking attendance.</p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="overflow-y-auto">
-                                                        <table className="w-full text-sm text-left">
-                                                            <thead className="text-xs text-gray-400 uppercase bg-black/20 sticky top-0 backdrop-blur-sm">
-                                                                <tr>
-                                                                    <th className="px-4 py-3 font-medium">Name</th>
-                                                                    <th className="px-4 py-3 font-medium">Phone</th>
-                                                                    <th className="px-4 py-3 font-medium text-right">Time</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody className="divide-y divide-gray-800/50">
-                                                                {attendees.map((att) => (
-                                                                    <tr key={att.id} className="hover:bg-white/5 transition-colors">
-                                                                        <td className="px-4 py-3 font-medium text-gray-200">
-                                                                            {att.org_members.first_name} {att.org_members.last_name}
-                                                                        </td>
-                                                                        <td className="px-4 py-3 text-gray-400 font-mono text-xs">{att.org_members.phone_number}</td>
-                                                                        <td className="px-4 py-3 text-gray-500 text-xs text-right">
-                                                                            {new Date(att.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                )}
-                                            </div>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="w-full"
+                                                onClick={() =>
+                                                    window.open(getCheckInUrl(selectedEvent.code), '_blank')
+                                                }
+                                            >
+                                                <ExternalLink className="h-3.5 w-3.5" />
+                                                Open check-in page
+                                            </Button>
                                         </div>
                                     </div>
-                                </>
-                            )}
-                        </DialogContent>
-                    </Dialog>
-                </div>
+
+                                    {/* Attendees */}
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-1.5 text-sm font-medium">
+                                                <Users className="h-4 w-4" />
+                                                Attendees ({attendees.length})
+                                            </div>
+                                            <Button
+                                                size="icon-sm"
+                                                variant="ghost"
+                                                onClick={refreshAttendees}
+                                                disabled={loadingAttendees}
+                                            >
+                                                <RefreshCw
+                                                    className={`h-3.5 w-3.5 ${loadingAttendees ? 'animate-spin' : ''}`}
+                                                />
+                                            </Button>
+                                        </div>
+
+                                        <div className="flex h-[360px] flex-col overflow-hidden rounded-2xl border border-border/80 bg-card">
+                                            {loadingAttendees ? (
+                                                <div className="flex flex-1 items-center justify-center text-muted-foreground">
+                                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                                </div>
+                                            ) : attendees.length === 0 ? (
+                                                <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+                                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-primary">
+                                                        <Users className="h-5 w-5" />
+                                                    </div>
+                                                    <p className="mt-3 text-sm font-medium">No attendees yet</p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        Share the QR code to start tracking.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="overflow-y-auto">
+                                                    <table className="w-full text-left text-sm">
+                                                        <thead className="sticky top-0 bg-card text-xs uppercase tracking-wider text-muted-foreground">
+                                                            <tr className="border-b border-border/80">
+                                                                <th className="px-4 py-3 font-medium">Name</th>
+                                                                <th className="px-4 py-3 font-medium">Phone</th>
+                                                                <th className="px-4 py-3 text-right font-medium">Time</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-border/60">
+                                                            {attendees.map((att) => (
+                                                                <tr
+                                                                    key={att.id}
+                                                                    className="transition-colors hover:bg-accent/40"
+                                                                >
+                                                                    <td className="px-4 py-3 font-medium text-foreground">
+                                                                        {att.org_members.first_name}{' '}
+                                                                        {att.org_members.last_name}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                                                                        {att.org_members.phone_number}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-right text-xs text-muted-foreground">
+                                                                        {new Date(att.created_at).toLocaleTimeString([], {
+                                                                            hour: 'numeric',
+                                                                            minute: '2-digit',
+                                                                        })}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </DialogContent>
+                </Dialog>
             </div>
         </AnimatedBackground>
     )

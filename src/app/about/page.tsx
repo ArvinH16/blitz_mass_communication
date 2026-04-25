@@ -1,257 +1,203 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { motion } from "framer-motion";
 import Link from "next/link";
 import AnimatedBackground from "@/components/AnimatedBackground";
+import { ArrowLeft, ArrowRight, Mail, Sparkles, FileSpreadsheet, MessageSquare, QrCode, Shield, Users, Calendar } from "lucide-react";
+
+const features = [
+    { icon: Sparkles, title: 'AI column matching', desc: 'Drop in any spreadsheet — Blitz figures out which columns are which.' },
+    { icon: FileSpreadsheet, title: 'CSV & Excel ready', desc: 'Native support for the formats your team already uses.' },
+    { icon: MessageSquare, title: 'SMS + Email together', desc: 'One composer, both channels, deliverability optimized.' },
+    { icon: Users, title: 'Smart contact mgmt', desc: 'Opt-out, deduplication, and tagging — all built-in.' },
+    { icon: QrCode, title: 'QR registration', desc: 'Generate codes for events and member onboarding.' },
+    { icon: Calendar, title: 'Event check-in', desc: 'Track who showed up with QR check-ins and live counts.' },
+];
+
+const audiences = [
+    'Campus organizations & clubs',
+    'Student government bodies',
+    'Small businesses & startups',
+    'Event organizers & venues',
+    'Educational institutions',
+    'Religious & community groups',
+];
 
 export default function AboutPage() {
-  return (
-    <AnimatedBackground>
-      <div className="relative min-h-screen w-full bg-transparent text-black sm:text-black text-white flex flex-col items-center justify-center z-10">
-        <div className="container mx-auto px-4 py-16">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="max-w-4xl mx-auto space-y-12"
-          >
-            <div className="text-center space-y-6">
-              <motion.h1 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.8 }}
-                className="text-6xl md:text-8xl font-bold tracking-tight relative"
-              >
-                <div className="relative">
-                  <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent animate-gradient">
-                    About Us
-                  </span>
-                </div>
-              </motion.h1>
-              <motion.p 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.8 }}
-                className="text-xl md:text-2xl font-semibold max-w-2xl mx-auto leading-relaxed bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent animate-gradient"
-                style={{
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                  color: 'transparent',
-                  WebkitTextFillColor: 'transparent',
-                  MozBackgroundClip: 'text',
-                }}
-              >
-                The Ultimate Communication Platform for Organizations
-              </motion.p>
-            </div>
+    return (
+        <AnimatedBackground variant="hero">
+            <div className="relative z-10 mx-auto w-full max-w-5xl px-6 py-12 sm:py-16">
+                <Link
+                    href="/"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to home
+                </Link>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-            >
-              <Card className="bg-white/5 backdrop-blur-sm border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-xl md:text-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent">What We Offer</CardTitle>
-                  <CardDescription className="text-base text-gray-700">
-                    A powerful, all-in-one platform for seamless mass communication
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-base text-gray-700">
-                    Blitz is a communication platform that combines the power of mass texting and email capabilities in one intuitive interface. Perfect for campus organizations, clubs, and businesses, our platform streamlines your communication needs with cutting-edge features and user-friendly design. Built with modern technology and a focus on user experience, we make mass communication simple and effective.
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5, duration: 0.8 }}
-              >
-                <Card className="bg-white/5 backdrop-blur-sm border-white/10 h-full">
-                  <CardHeader>
-                    <CardTitle className="text-xl md:text-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent">Key Features</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <ul className="space-y-3 text-base text-gray-700">
-                      <li className="flex items-center space-x-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        <span>Intelligent file upload with AI-powered column matching</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        <span>Support for Excel and CSV files</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        <span>Unified platform for both SMS and email</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        <span>Smart contact management with opt-out handling</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        <span>QR code-based member registration</span>
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.6, duration: 0.8 }}
-              >
-                <Card className="bg-white/5 backdrop-blur-sm border-white/10 h-full">
-                  <CardHeader>
-                    <CardTitle className="text-xl md:text-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent">Perfect For</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <ul className="space-y-3 text-base text-gray-700">
-                      <li className="flex items-center space-x-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        <span>Campus organizations and clubs</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        <span>Student government bodies</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        <span>Small businesses and startups</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        <span>Event organizers</span>
-                      </li>
-                      <li className="flex items-center space-x-2">
-                        <span className="w-2 h-2 bg-purple-600 rounded-full"></span>
-                        <span>Educational institutions</span>
-                      </li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.8 }}
-            >
-              <Card className="bg-white/5 backdrop-blur-sm border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-xl md:text-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent">Why Choose Blitz</CardTitle>
-                  <CardDescription className="text-base text-gray-700">
-                    Experience the future of organizational communication
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <p className="text-base text-gray-700">
-                    Our platform stands out with its intelligent file processing capabilities. Simply upload your Excel or CSV files, and our AI technology automatically matches columns and organizes your contact data. This smart approach saves you time and eliminates manual data entry errors. Whether you&apos;re managing a campus organization, running a business, or coordinating events, Mass Texter provides the tools you need to communicate effectively with your audience.
-                  </p>
-                  <div className="flex justify-center">
-                    <Link
-                      href="/"
-                      className="bg-gradient-to-r from-blue-600 via-purple-500 to-blue-800 text-white px-6 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-purple-600/30 transition-all duration-300 transform hover:scale-105"
-                    >
-                      Get Started Now
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.75, duration: 0.8 }}
-            >
-              <Card className="bg-white/5 backdrop-blur-sm border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-xl md:text-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent">See It In Action</CardTitle>
-                  <CardDescription className="text-base text-gray-700">
-                    Watch our platform in action
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
-                    <iframe
-                      src="https://www.loom.com/embed/834c84a07f884f059e370a275fb72071?sid=cc50b005-7f33-4b9d-acef-1dec6712aa47"
-                      allowFullScreen
-                      className="absolute top-0 left-0 w-full h-full rounded-lg shadow-lg"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.8 }}
-            >
-              <Card className="bg-white/5 backdrop-blur-sm border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-xl md:text-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent">Contact Us</CardTitle>
-                  <CardDescription className="text-base text-gray-700">
-                    Have questions? We&apos;re here to help!
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <p className="text-base text-gray-700">
-                      For any further questions, please email us at:
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="mt-10 text-center"
+                >
+                    <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+                        About Blitz
                     </p>
-                    <a 
-                      href="mailto:arvin@hakakian.me"
-                      className="inline-block text-base font-medium text-purple-600 hover:text-purple-700 transition-colors duration-200"
-                    >
-                      arvin@hakakian.me
-                    </a>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <p className="text-base text-gray-700">
-                      Connect with us on LinkedIn:
+                    <h1 className="mt-3 text-5xl font-semibold tracking-tighter sm:text-6xl md:text-7xl">
+                        Communication, <br />
+                        <span className="brand-wordmark">simplified.</span>
+                    </h1>
+                    <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                        Blitz is the all-in-one platform that combines mass texting, email, member management, and event tools — designed for the way modern organizations actually communicate.
                     </p>
-                    <div className="flex flex-col space-y-2">
-                      <a 
-                        href="https://www.linkedin.com/in/arvin-hakakian/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-base font-medium text-purple-600 hover:text-purple-700 transition-colors duration-200"
-                      >
-                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                        </svg>
-                        Arvin Hakakian
-                      </a>
-                      <a 
-                        href="https://www.linkedin.com/in/eyal-shechtman/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-base font-medium text-purple-600 hover:text-purple-700 transition-colors duration-200"
-                      >
-                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                        </svg>
-                        Eyal Shechtman
-                      </a>
+                </motion.div>
+
+                <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.1 }}
+                    className="mt-16"
+                >
+                    <div className="grid gap-px overflow-hidden rounded-2xl border border-border/80 bg-border/80 sm:grid-cols-2 lg:grid-cols-3">
+                        {features.map((f) => (
+                            <div key={f.title} className="bg-card p-6">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-primary">
+                                    <f.icon className="h-5 w-5" />
+                                </div>
+                                <h3 className="mt-4 font-semibold">{f.title}</h3>
+                                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+                            </div>
+                        ))}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </motion.div>
-        </div>
-      </div>
-    </AnimatedBackground>
-  )
-} 
+                </motion.section>
+
+                <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                    className="mt-16 grid gap-8 lg:grid-cols-2"
+                >
+                    <div className="rounded-2xl border border-border/80 bg-card p-8">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-primary">Built for</p>
+                        <h2 className="mt-3 text-2xl font-semibold tracking-tight">Organizations of every size</h2>
+                        <ul className="mt-6 space-y-3">
+                            {audiences.map((a) => (
+                                <li key={a} className="flex items-start gap-3 text-sm">
+                                    <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                                    <span className="text-foreground/90">{a}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    <div className="rounded-2xl border border-border/80 bg-card p-8">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-primary">Why Blitz</p>
+                        <h2 className="mt-3 text-2xl font-semibold tracking-tight">Less chaos, more clarity</h2>
+                        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                            We built Blitz because juggling spreadsheets, group chats, and ad-hoc tools was getting in the way of actually doing the work. With AI-powered file parsing, automatic opt-out handling, and a unified inbox of who said what — your team spends less time on logistics and more time on impact.
+                        </p>
+                        <div className="mt-6 flex items-center gap-2 rounded-lg bg-accent/60 p-3 text-xs">
+                            <Shield className="h-4 w-4 text-primary" />
+                            <span className="text-foreground/80">10DLC compliant · Opt-out handling · Per-org rate limits</span>
+                        </div>
+                    </div>
+                </motion.section>
+
+                <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.3 }}
+                    className="mt-16"
+                >
+                    <div className="overflow-hidden rounded-2xl border border-border/80 bg-card">
+                        <div className="border-b border-border/80 px-6 py-4">
+                            <h2 className="text-lg font-semibold tracking-tight">See it in action</h2>
+                            <p className="text-sm text-muted-foreground">A two-minute tour of how Blitz works</p>
+                        </div>
+                        <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+                            <iframe
+                                src="https://www.loom.com/embed/834c84a07f884f059e370a275fb72071?sid=cc50b005-7f33-4b9d-acef-1dec6712aa47"
+                                allowFullScreen
+                                className="absolute top-0 left-0 h-full w-full"
+                            />
+                        </div>
+                    </div>
+                </motion.section>
+
+                <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.4 }}
+                    className="mt-16 grid gap-8 sm:grid-cols-2"
+                >
+                    <div className="rounded-2xl border border-border/80 bg-card p-8">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-primary">
+                            <Mail className="h-5 w-5" />
+                        </div>
+                        <h2 className="mt-4 text-xl font-semibold tracking-tight">Get in touch</h2>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                            Have questions, feedback, or just want to say hi? We&apos;d love to hear from you.
+                        </p>
+                        <a
+                            href="mailto:arvin@hakakian.me"
+                            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                        >
+                            arvin@hakakian.me
+                            <ArrowRight className="h-3.5 w-3.5" />
+                        </a>
+                    </div>
+                    <div className="rounded-2xl border border-border/80 bg-card p-8">
+                        <h2 className="text-xl font-semibold tracking-tight">The team</h2>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                            Connect with us on LinkedIn.
+                        </p>
+                        <div className="mt-4 space-y-2">
+                            {[
+                                { name: 'Arvin Hakakian', url: 'https://www.linkedin.com/in/arvin-hakakian/' },
+                                { name: 'Eyal Shechtman', url: 'https://www.linkedin.com/in/eyal-shechtman/' },
+                            ].map((p) => (
+                                <a
+                                    key={p.name}
+                                    href={p.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between rounded-lg border border-border/60 bg-background p-3 transition-colors hover:border-primary/40 hover:bg-accent/50"
+                                >
+                                    <span className="text-sm font-medium">{p.name}</span>
+                                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                </a>
+                            ))}
+                        </div>
+                    </div>
+                </motion.section>
+
+                <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.5 }}
+                    className="mt-16"
+                >
+                    <div className="overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-foreground to-foreground/85 px-8 py-12 text-background sm:px-12">
+                        <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+                            <div>
+                                <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                                    Try Blitz today
+                                </h3>
+                                <p className="mt-2 text-sm text-background/70">
+                                    Free to set up. Cancel anytime.
+                                </p>
+                            </div>
+                            <Link
+                                href="/"
+                                className="inline-flex h-11 items-center gap-2 rounded-xl bg-background px-5 text-sm font-medium text-foreground shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                Get started
+                                <ArrowRight className="h-4 w-4" />
+                            </Link>
+                        </div>
+                    </div>
+                </motion.section>
+            </div>
+        </AnimatedBackground>
+    );
+}
