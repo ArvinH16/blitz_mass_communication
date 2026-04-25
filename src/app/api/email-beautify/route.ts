@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Configure function timeout for Vercel
 export const maxDuration = 30; // 30 seconds
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // Email template styles
 const emailTemplates = {
@@ -411,22 +408,18 @@ RESPOND WITH ONLY THIS JSON FORMAT (no other text):
   "signature": "suggested organization signature"
 }`;
 
-    // Call OpenAI API with increased token limit for larger emails
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert email designer and copywriter. You help create beautiful, professional HTML email layouts. IMPORTANT: Always respond with ONLY valid JSON in the exact format specified. Do not include any explanations, markdown formatting, or additional text outside the JSON object."
-        },
-        { role: "user", content: enhancementPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 3000, // Increased from 1500 to handle larger emails
-      response_format: { type: "json_object" }, // Enforce JSON mode for reliable parsing
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: "You are an expert email designer and copywriter. You help create beautiful, professional HTML email layouts. IMPORTANT: Always respond with ONLY valid JSON in the exact format specified. Do not include any explanations, markdown formatting, or additional text outside the JSON object.",
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 3000,
+        responseMimeType: "application/json",
+      },
     });
 
-    const aiResponse = completion.choices[0]?.message?.content || '{}';
+    const result = await model.generateContent(enhancementPrompt);
+    const aiResponse = result.response.text() || '{}';
 
     let aiEnhancements;
     try {

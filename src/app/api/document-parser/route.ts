@@ -1,6 +1,6 @@
 // app/api/document-parser/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { OpenAI } from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { parse } from 'csv-parse/sync'
 import ExcelJS from 'exceljs'
 import { getOrganizationByAccessCode, uploadContactsWithDuplicateCheck, formatPhoneNumber } from '@/lib/supabase'
@@ -209,27 +209,24 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    console.log('Preparing to call OpenAI for parsing')
+    console.log('Preparing to call Gemini for parsing')
 
-    const client = new OpenAI({
-      apiKey: process.env['OPENAI_API_KEY'],
-    });
-
-    // Call OpenAI to parse the text
-    console.log('Calling OpenAI API')
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: textContent }
-      ],
-      response_format: { type: "json_object" }
+    const genAI = new GoogleGenerativeAI(process.env['GEMINI_API_KEY'] || '')
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: SYSTEM_PROMPT,
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
     })
 
-    console.log('OpenAI API response received')
+    console.log('Calling Gemini API')
+    const result = await model.generateContent(textContent)
 
-    const raw = completion.choices[0].message.content
-    console.log(`OpenAI response preview: ${raw?.substring(0, 200)}...`)
+    console.log('Gemini API response received')
+
+    const raw = result.response.text()
+    console.log(`Gemini response preview: ${raw?.substring(0, 200)}...`)
 
     let parsedResponse: { contacts?: Contact[] } | Contact[] | Record<string, unknown>
     let contacts: Contact[] = []
@@ -245,8 +242,8 @@ export async function POST(request: NextRequest) {
         contacts = []
       }
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response as JSON:', parseError)
-      console.error('Raw OpenAI response:', raw)
+      console.error('Failed to parse Gemini response as JSON:', parseError)
+      console.error('Raw Gemini response:', raw)
 
       // Try to extract any potential JSON from the response
       if (raw) {
