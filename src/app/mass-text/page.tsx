@@ -1093,61 +1093,89 @@ export default function MassTextPage() {
 
   return (
     <AnimatedBackground>
-      <div className={`container mx-auto p-4 ${viewMode === 'contacts-management' ? 'max-w-6xl' : 'max-w-4xl'}`}>
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Mass Communication</h1>
-          <div className="flex space-x-2">
+      <div className={`container mx-auto px-4 sm:px-6 py-6 sm:py-10 ${viewMode === 'contacts-management' ? 'max-w-6xl' : 'max-w-5xl'}`}>
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-6 rounded-md bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 shadow-sm shadow-violet-500/30" />
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {orgInfo?.name ?? 'Dashboard'}
+              </span>
+            </div>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">Communications</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Compose, send, and manage messages and members.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={() => router.push('/sent-messages')}
-              className="flex items-center space-x-2"
             >
               <MessageSquare className="h-4 w-4" />
-              <span>View Sent Messages</span>
+              History
             </Button>
             <Button variant="outline" onClick={() => setShowQrModal(true)} disabled={!orgInfo}>
-              Generate Join QR Code
+              Join QR
             </Button>
           </div>
         </div>
+
         {/* QR Modal */}
         {showQrModal && orgInfo && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg p-6 relative w-full max-w-md">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm p-4"
+            onClick={() => setShowQrModal(false)}
+          >
+            <div
+              className="relative w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-elevated"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
-                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-3 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => setShowQrModal(false)}
                 aria-label="Close"
               >
-                ×
+                <XCircleIcon className="h-5 w-5" />
               </button>
               <OrgQrCode orgName={orgInfo.name} joinUrl={joinUrl} />
             </div>
           </div>
         )}
-        <div className="flex mb-6 border rounded-lg overflow-hidden">
-          <button
-            className={`flex-1 py-2 ${viewMode === 'mass-text' ? 'bg-primary text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
-            onClick={() => setViewMode('mass-text')}
-          >
-            Mass Text & Email
-          </button>
-          <button
-            className={`flex-1 py-2 ${viewMode === 'contacts-management' ? 'bg-primary text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
-            onClick={() => {
-              setViewMode('contacts-management')
-              setShowContactsList(true)
-              fetchContactsFromSupabase()
-            }}
-          >
-            All Members
-          </button>
-          <button
-            className={`flex-1 py-2 ${viewMode === 'events' ? 'bg-primary text-white' : 'bg-gray-100 hover:bg-gray-200'}`}
-            onClick={() => setViewMode('events')}
-          >
-            Events
-          </button>
+
+        {/* Tabs */}
+        <div className="mb-8 inline-flex w-full items-center rounded-xl border border-border/80 bg-muted/40 p-1 sm:w-auto">
+          {[
+            { key: 'mass-text', label: 'Compose', icon: MessageSquare },
+            { key: 'contacts-management', label: 'Members', icon: Database },
+            { key: 'events', label: 'Events', icon: InfoIcon },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const active = viewMode === tab.key;
+            return (
+              <button
+                key={tab.key}
+                className={`relative flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all sm:flex-initial ${
+                  active
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                onClick={() => {
+                  if (tab.key === 'contacts-management') {
+                    setViewMode('contacts-management');
+                    setShowContactsList(true);
+                    fetchContactsFromSupabase();
+                  } else {
+                    setViewMode(tab.key as 'mass-text' | 'contacts-management' | 'events');
+                  }
+                }}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
         {viewMode === 'mass-text' ? (

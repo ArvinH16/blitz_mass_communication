@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from 'next/link';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft, KeyRound, Loader2 } from "lucide-react";
 import TransitionAnimation from '@/components/TransitionAnimation';
+import AnimatedBackground from '@/components/AnimatedBackground';
 import { motion } from 'framer-motion';
 
 export default function AccessCodePage() {
@@ -19,7 +20,6 @@ export default function AccessCodePage() {
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        // Trigger entrance animation after component mounts
         setIsVisible(true);
     }, []);
 
@@ -31,9 +31,7 @@ export default function AccessCodePage() {
         try {
             const response = await fetch('/api/verify-code', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ accessCode }),
             });
 
@@ -41,10 +39,7 @@ export default function AccessCodePage() {
 
             if (response.ok) {
                 setShowTransition(true);
-                // Wait for the transition animation to complete before redirecting
-                setTimeout(() => {
-                    router.push('/mass-text');
-                }, 1000);
+                setTimeout(() => router.push('/mass-text'), 1000);
             } else {
                 setError(data.message || 'Invalid access code');
                 setIsLoading(false);
@@ -58,62 +53,79 @@ export default function AccessCodePage() {
     return (
         <>
             {showTransition && <TransitionAnimation />}
-            <motion.div 
-                className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-black p-4"
-                initial={{ opacity: 0 }}
-                animate={{ 
-                    opacity: isVisible ? 1 : 0,
-                }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-            >
-                <motion.div
-                    initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                    animate={{ 
-                        scale: isVisible ? 1 : 0.95,
-                        opacity: isVisible ? 1 : 0,
-                        y: isVisible ? 0 : 20
-                    }}
-                    transition={{ 
-                        duration: 0.8, 
-                        delay: 0.3,
-                        ease: [0.16, 1, 0.3, 1] // Custom easing for a more polished feel
-                    }}
-                >
-                    <Card className="w-full max-w-md backdrop-blur-sm bg-white/90 shadow-xl">
-                        <CardHeader>
-                            <CardTitle className="text-2xl text-center">Enter Access Code</CardTitle>
-                            <CardDescription className="text-center">
-                                Please enter your organization&apos;s access code to continue
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <Input
-                                    type="password"
-                                    placeholder="Enter access code"
-                                    value={accessCode}
-                                    onChange={(e) => setAccessCode(e.target.value)}
-                                    className="w-full"
-                                    required
-                                />
+            <AnimatedBackground variant="hero">
+                <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-6">
+                    <Link
+                        href="/"
+                        className="absolute left-6 top-6 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Home
+                    </Link>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                        animate={{
+                            opacity: isVisible ? 1 : 0,
+                            y: isVisible ? 0 : 20,
+                            scale: isVisible ? 1 : 0.98,
+                        }}
+                        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                        className="w-full"
+                    >
+                        <div className="rounded-2xl border border-border/80 bg-card/90 p-8 shadow-elevated backdrop-blur-xl">
+                            <div className="flex items-center justify-center">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-primary">
+                                    <KeyRound className="h-6 w-6" />
+                                </div>
+                            </div>
+                            <h1 className="mt-5 text-center text-2xl font-semibold tracking-tight">
+                                Enter access code
+                            </h1>
+                            <p className="mt-2 text-center text-sm text-muted-foreground">
+                                Enter your organization&apos;s access code to continue.
+                            </p>
+
+                            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                                <div>
+                                    <Input
+                                        type="password"
+                                        placeholder="••••••••"
+                                        value={accessCode}
+                                        onChange={(e) => setAccessCode(e.target.value)}
+                                        className="h-11 text-center text-base tracking-[0.3em]"
+                                        autoFocus
+                                        required
+                                    />
+                                </div>
                                 {error && (
                                     <Alert variant="destructive">
                                         <AlertCircle className="h-4 w-4" />
                                         <AlertDescription>{error}</AlertDescription>
                                     </Alert>
                                 )}
-                                <Button 
-                                    type="submit" 
-                                    className="w-full"
-                                    disabled={isLoading}
-                                >
-                                    {isLoading ? 'Verifying...' : 'Continue'}
+                                <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Verifying...
+                                        </>
+                                    ) : (
+                                        'Continue'
+                                    )}
                                 </Button>
                             </form>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-            </motion.div>
+                        </div>
+
+                        <p className="mt-6 text-center text-sm text-muted-foreground">
+                            Don&apos;t have an organization yet?{' '}
+                            <Link href="/register" className="font-medium text-primary hover:underline">
+                                Register one
+                            </Link>
+                        </p>
+                    </motion.div>
+                </div>
+            </AnimatedBackground>
         </>
     );
-} 
+}

@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(request: NextRequest) {
   try {
@@ -106,21 +103,18 @@ Only include updatedHtml and updatedEnhancements if you actually made changes. I
       }
     }
     
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { 
-          role: "system", 
-          content: systemMessage
-        },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: type === 'email_customization' ? 2000 : 500,
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: systemMessage,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: type === 'email_customization' ? 2000 : 500,
+        ...(type === 'email_customization' ? { responseMimeType: "application/json" } : {}),
+      },
     });
-    
-    const aiResponse = completion.choices[0]?.message?.content || 'No response generated';
+
+    const result = await model.generateContent(prompt);
+    const aiResponse = result.response.text() || 'No response generated';
     
     // Handle email customization response
     if (type === 'email_customization') {

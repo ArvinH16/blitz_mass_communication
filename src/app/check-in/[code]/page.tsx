@@ -5,11 +5,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, CheckCircle2, AlertCircle, ArrowRight, User, Mail, Phone } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, ArrowRight, User, Mail, Phone, ShieldCheck } from 'lucide-react';
 import { submitAttendance } from '@/app/actions/attendance';
 import { useParams } from 'next/navigation';
+import AnimatedBackground from '@/components/AnimatedBackground';
 
-// --- Form Schemas ---
 const phoneSchema = z.object({
     phoneNumber: z.string().min(10, 'Phone number must be at least 10 digits'),
 });
@@ -32,15 +32,17 @@ export default function CheckInPage() {
     const [loading, setLoading] = useState(false);
     const [memberName, setMemberName] = useState<string | null>(null);
 
-    // Phone Form
-    const { register: registerPhone, handleSubmit: handleSubmitPhone, formState: { errors: phoneErrors } } = useForm<PhoneFormValues>({
-        resolver: zodResolver(phoneSchema),
-    });
+    const {
+        register: registerPhone,
+        handleSubmit: handleSubmitPhone,
+        formState: { errors: phoneErrors },
+    } = useForm<PhoneFormValues>({ resolver: zodResolver(phoneSchema) });
 
-    // Details Form
-    const { register: registerDetails, handleSubmit: handleSubmitDetails, formState: { errors: detailsErrors } } = useForm<DetailsFormValues>({
-        resolver: zodResolver(detailsSchema),
-    });
+    const {
+        register: registerDetails,
+        handleSubmit: handleSubmitDetails,
+        formState: { errors: detailsErrors },
+    } = useForm<DetailsFormValues>({ resolver: zodResolver(detailsSchema) });
 
     const onSubmitPhone = async (data: PhoneFormValues) => {
         setLoading(true);
@@ -88,9 +90,7 @@ export default function CheckInPage() {
                 setMemberName(result.memberName || `${data.firstName} ${data.lastName}`);
                 setStep(3);
             } else {
-                if ('error' in result) {
-                    setErrorMessage(result.error);
-                }
+                if ('error' in result) setErrorMessage(result.error);
             }
         } catch {
             setErrorMessage('An unexpected error occurred. Please try again.');
@@ -100,166 +100,200 @@ export default function CheckInPage() {
     };
 
     return (
-        <div className="min-h-screen w-full bg-gradient-to-br from-gray-900 to-black text-white flex flex-col items-center justify-center p-4 overflow-hidden relative">
-            {/* Background Decorative Elements */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none" />
+        <AnimatedBackground variant="hero">
+            <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-6 py-10">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="w-full"
+                >
+                    <div className="rounded-2xl border border-border/80 bg-card/90 p-8 shadow-elevated backdrop-blur-xl">
+                        <div className="flex justify-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-primary">
+                                <ShieldCheck className="h-6 w-6" />
+                            </div>
+                        </div>
+                        <div className="mt-5 text-center">
+                            <h1 className="text-2xl font-semibold tracking-tight">Event check-in</h1>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                {step === 1 && 'Enter your phone number to get started.'}
+                                {step === 2 && "We don't have you yet — quick details below."}
+                                {step === 3 && "You're all set. Enjoy the event!"}
+                            </p>
+                        </div>
 
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="w-full max-w-md relative z-10"
-            >
-                <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-8 shadow-2xl">
-                    <div className="mb-8 text-center">
-                        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 mb-2">
-                            Event Check-in
-                        </h1>
-                        <p className="text-gray-400 text-sm">
-                            {step === 1 && "Enter your phone number to get started"}
-                            {step === 2 && "We found you're new! Please complete your profile"}
-                            {step === 3 && "You're all set! Enjoy the event"}
-                        </p>
-                    </div>
+                        <div className="mt-6">
+                            <AnimatePresence mode="wait">
+                                {step === 1 && (
+                                    <motion.form
+                                        key="step1"
+                                        initial={{ opacity: 0, x: -16 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 16 }}
+                                        onSubmit={handleSubmitPhone(onSubmitPhone)}
+                                        className="space-y-5"
+                                    >
+                                        <div className="space-y-1.5">
+                                            <label htmlFor="phoneNumber" className="text-sm font-medium">
+                                                Phone number
+                                            </label>
+                                            <div className="relative">
+                                                <Phone className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                                <input
+                                                    {...registerPhone('phoneNumber')}
+                                                    type="tel"
+                                                    placeholder="(555) 123-4567"
+                                                    className="h-11 w-full rounded-lg border border-input bg-background py-2 pl-10 pr-4 text-sm shadow-xs outline-none transition-all hover:border-input/80 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
+                                                />
+                                            </div>
+                                            {phoneErrors.phoneNumber && (
+                                                <p className="flex items-center gap-1 text-xs text-destructive">
+                                                    <AlertCircle className="h-3 w-3" />
+                                                    {phoneErrors.phoneNumber.message}
+                                                </p>
+                                            )}
+                                        </div>
 
-                    <AnimatePresence mode="wait">
-                        {step === 1 && (
-                            <motion.form
-                                key="step1"
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                onSubmit={handleSubmitPhone(onSubmitPhone)}
-                                className="space-y-6"
-                            >
-                                <div className="space-y-2">
-                                    <label htmlFor="phoneNumber" className="text-sm font-medium text-gray-300 ml-1">Phone Number</label>
-                                    <div className="relative">
-                                        <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
-                                        <input
-                                            {...registerPhone('phoneNumber')}
-                                            type="tel"
-                                            placeholder="(555) 123-4567"
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
-                                        />
-                                    </div>
-                                    {phoneErrors.phoneNumber && (
-                                        <p className="text-red-400 text-xs ml-1 flex items-center gap-1">
-                                            <AlertCircle className="w-3 h-3" /> {phoneErrors.phoneNumber.message}
+                                        <button
+                                            type="submit"
+                                            disabled={loading}
+                                            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60"
+                                        >
+                                            {loading ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <>
+                                                    Continue <ArrowRight className="h-4 w-4" />
+                                                </>
+                                            )}
+                                        </button>
+                                    </motion.form>
+                                )}
+
+                                {step === 2 && (
+                                    <motion.form
+                                        key="step2"
+                                        initial={{ opacity: 0, x: -16 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 16 }}
+                                        onSubmit={handleSubmitDetails(onSubmitDetails)}
+                                        className="space-y-4"
+                                    >
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium">First name</label>
+                                                <div className="relative">
+                                                    <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                                    <input
+                                                        {...registerDetails('firstName')}
+                                                        placeholder="Jane"
+                                                        className="h-11 w-full rounded-lg border border-input bg-background py-2 pl-10 pr-3 text-sm shadow-xs outline-none transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
+                                                    />
+                                                </div>
+                                                {detailsErrors.firstName && (
+                                                    <p className="text-xs text-destructive">
+                                                        {detailsErrors.firstName.message}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium">Last name</label>
+                                                <div className="relative">
+                                                    <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                                    <input
+                                                        {...registerDetails('lastName')}
+                                                        placeholder="Doe"
+                                                        className="h-11 w-full rounded-lg border border-input bg-background py-2 pl-10 pr-3 text-sm shadow-xs outline-none transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
+                                                    />
+                                                </div>
+                                                {detailsErrors.lastName && (
+                                                    <p className="text-xs text-destructive">
+                                                        {detailsErrors.lastName.message}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium">Email</label>
+                                            <div className="relative">
+                                                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                                <input
+                                                    {...registerDetails('email')}
+                                                    type="email"
+                                                    placeholder="jane@example.com"
+                                                    className="h-11 w-full rounded-lg border border-input bg-background py-2 pl-10 pr-3 text-sm shadow-xs outline-none transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
+                                                />
+                                            </div>
+                                            {detailsErrors.email && (
+                                                <p className="text-xs text-destructive">
+                                                    {detailsErrors.email.message}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            type="submit"
+                                            disabled={loading}
+                                            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60"
+                                        >
+                                            {loading ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                'Complete check-in'
+                                            )}
+                                        </button>
+                                    </motion.form>
+                                )}
+
+                                {step === 3 && (
+                                    <motion.div
+                                        key="step3"
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="flex flex-col items-center text-center"
+                                    >
+                                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+                                            <CheckCircle2 className="h-8 w-8" />
+                                        </div>
+                                        <h2 className="mt-4 text-xl font-semibold tracking-tight">
+                                            Checked in!
+                                        </h2>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            Welcome,{' '}
+                                            <span className="font-medium text-primary">{memberName}</span>.
                                         </p>
-                                    )}
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-blue-900/20 transform transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
-                                </button>
-                            </motion.form>
-                        )}
-
-                        {step === 2 && (
-                            <motion.form
-                                key="step2"
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                onSubmit={handleSubmitDetails(onSubmitDetails)}
-                                className="space-y-5"
-                            >
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-gray-300 ml-1">First Name</label>
-                                        <div className="relative">
-                                            <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                                            <input
-                                                {...registerDetails('firstName')}
-                                                placeholder="John"
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                                            />
+                                        <div className="mt-5 w-full rounded-lg border border-border/80 bg-accent/40 p-3 text-center">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                                Event code
+                                            </p>
+                                            <p className="mt-0.5 font-mono text-sm tracking-widest text-foreground">
+                                                {eventCode}
+                                            </p>
                                         </div>
-                                        {detailsErrors.firstName && <p className="text-red-400 text-xs ml-1">{detailsErrors.firstName.message}</p>}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-gray-300 ml-1">Last Name</label>
-                                        <div className="relative">
-                                            <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                                            <input
-                                                {...registerDetails('lastName')}
-                                                placeholder="Doe"
-                                                className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                                            />
-                                        </div>
-                                        {detailsErrors.lastName && <p className="text-red-400 text-xs ml-1">{detailsErrors.lastName.message}</p>}
-                                    </div>
-                                </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-300 ml-1">Email</label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                                        <input
-                                            {...registerDetails('email')}
-                                            type="email"
-                                            placeholder="john@example.com"
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                                        />
-                                    </div>
-                                    {detailsErrors.email && <p className="text-red-400 text-xs ml-1">{detailsErrors.email.message}</p>}
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-blue-900/20 transform transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
-                                >
-                                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Complete Check-in"}
-                                </button>
-                            </motion.form>
-                        )}
-
-                        {step === 3 && (
+                        {errorMessage && (
                             <motion.div
-                                key="step3"
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="flex flex-col items-center text-center py-6"
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mt-5 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3"
                             >
-                                <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mb-6">
-                                    <CheckCircle2 className="w-10 h-10 text-green-400" />
-                                </div>
-                                <h2 className="text-2xl font-bold text-white mb-2">Checked In!</h2>
-                                <p className="text-gray-400 mb-6">
-                                    Welcome to the event, <span className="text-blue-400 font-semibold">{memberName}</span>.
-                                </p>
-                                <div className="p-4 bg-white/5 rounded-xl border border-white/5 w-full">
-                                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Event Code</p>
-                                    <p className="text-lg font-mono text-white tracking-widest">{eventCode}</p>
-                                </div>
+                                <AlertCircle className="h-4 w-4 shrink-0 translate-y-0.5 text-destructive" />
+                                <p className="text-sm text-destructive">{errorMessage}</p>
                             </motion.div>
                         )}
-                    </AnimatePresence>
+                    </div>
 
-                    {errorMessage && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="mt-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-3"
-                        >
-                            <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                            <p className="text-sm text-red-300">{errorMessage}</p>
-                        </motion.div>
-                    )}
-
-                </div>
-
-                <div className="mt-8 text-center">
-                    <p className="text-xs text-gray-600">© 2026 Blitz Mass Communication</p>
-                </div>
-            </motion.div>
-        </div>
+                    <p className="mt-6 text-center text-xs text-muted-foreground">
+                        © {new Date().getFullYear()} Blitz · Mass Communication
+                    </p>
+                </motion.div>
+            </div>
+        </AnimatedBackground>
     );
 }

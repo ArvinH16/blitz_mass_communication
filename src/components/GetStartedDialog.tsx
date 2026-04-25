@@ -1,7 +1,8 @@
+'use client';
+
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from 'framer-motion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ArrowRight, Building2, KeyRound } from 'lucide-react';
 
 interface GetStartedDialogProps {
     isOpen: boolean;
@@ -12,46 +13,52 @@ export function GetStartedDialog({ isOpen, onClose }: GetStartedDialogProps) {
     const router = useRouter();
 
     const handleNavigation = (path: string) => {
-        // Use a smoother transition with Framer Motion
-        setTimeout(() => {
-            onClose();
-            router.push(path);
-        }, 500); // Slightly longer for smoother transition
+        onClose();
+        setTimeout(() => router.push(path), 100);
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <AnimatePresence>
-                {isOpen && (
-                    <DialogContent className="sm:max-w-md max-w-[90%] overflow-hidden border border-gray-100 bg-white/90 backdrop-blur-sm p-6">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        >
-                            <DialogHeader className="mb-4">
-                                <DialogTitle className="text-center text-xl font-bold">Welcome to Mass Texter</DialogTitle>
-                            </DialogHeader>
-                            <div className="flex flex-col gap-4 py-4">
-                                <Button 
-                                    variant="outline" 
-                                    className="w-full h-12 text-base border-gray-300 hover:bg-gray-100 transition-colors"
-                                    onClick={() => handleNavigation('/access-code')}
-                                >
-                                    Already have an organization
-                                </Button>
-                                <Button 
-                                    className="w-full h-12 text-base bg-gradient-to-r from-blue-600 via-purple-500 to-blue-800 hover:opacity-90 transition-opacity text-white"
-                                    onClick={() => handleNavigation('/register')}
-                                >
-                                    Register organization
-                                </Button>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="text-xl">Welcome to Blitz</DialogTitle>
+                    <DialogDescription>
+                        Pick how you&apos;d like to get started.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="mt-2 grid gap-3">
+                    <button
+                        onClick={() => handleNavigation('/access-code')}
+                        className="group flex items-center gap-4 rounded-xl border border-border/80 bg-surface p-4 text-left transition-all hover:border-primary/40 hover:bg-accent/50"
+                    >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
+                            <KeyRound className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                            <div className="font-medium">Sign in to existing org</div>
+                            <div className="text-xs text-muted-foreground">
+                                Use your access code
                             </div>
-                        </motion.div>
-                    </DialogContent>
-                )}
-            </AnimatePresence>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                    <button
+                        onClick={() => handleNavigation('/register')}
+                        className="group flex items-center gap-4 rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 p-4 text-left transition-all hover:border-primary/50"
+                    >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                            <Building2 className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                            <div className="font-medium">Register new organization</div>
+                            <div className="text-xs text-muted-foreground">
+                                Set things up in under a minute
+                            </div>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-primary transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                </div>
+            </DialogContent>
         </Dialog>
     );
-} 
+}
