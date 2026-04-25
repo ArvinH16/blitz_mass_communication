@@ -4,6 +4,8 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useRealtimeRun } from "@trigger.dev/react-hooks"
+import type { sendBulkEmailTask, BulkEmailProgress } from "@/trigger/send-bulk-email"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -97,6 +99,7 @@ export default function MassTextPage() {
     status: 'sending' | 'paused' | 'completed' | 'error';
     message?: string;
   } | null>(null)
+  const [activeEmailRun, setActiveEmailRun] = useState<{ runId: string; token: string } | null>(null)
   const [uploadToDb, setUploadToDb] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [uploadSuccess, setUploadSuccess] = useState(false)
@@ -145,6 +148,90 @@ export default function MassTextPage() {
     const timer = setTimeout(() => setContactsFeedback(null), 3500)
     return () => clearTimeout(timer)
   }, [contactsFeedback])
+
+  // Restore active email run from localStorage on mount (survives refresh)
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem('activeEmailRun') : null
+    if (!saved) return
+    try {
+      const parsed = JSON.parse(saved) as { runId?: string; token?: string }
+      if (parsed.runId && parsed.token) {
+        setActiveEmailRun({ runId: parsed.runId, token: parsed.token })
+        setSendingEmails(true)
+      }
+    } catch {
+      window.localStorage.removeItem('activeEmailRun')
+    }
+  }, [])
+
+  // Subscribe to Trigger.dev realtime updates while a bulk email run is active
+  const { run: emailRun, error: emailRunError } = useRealtimeRun<typeof sendBulkEmailTask>(
+    activeEmailRun?.runId,
+    {
+      accessToken: activeEmailRun?.token,
+      enabled: !!activeEmailRun,
+    },
+  )
+
+  // Project realtime run state into the existing UI shape
+  useEffect(() => {
+    if (!activeEmailRun) return
+
+    if (emailRunError) {
+      setEmailError(emailRunError.message)
+      setSendingEmails(false)
+      setActiveEmailRun(null)
+      window.localStorage.removeItem('activeEmailRun')
+      return
+    }
+
+    if (!emailRun) return
+
+    const progress = (emailRun.metadata as { progress?: BulkEmailProgress } | undefined)?.progress
+    if (progress) {
+      setEmailProgress({
+        ...progress,
+        estimatedTimeRemaining: 0,
+      })
+    }
+
+    if (emailRun.status === 'COMPLETED') {
+      const output = emailRun.output as { sent: number; failed: number; errors: string[] } | undefined
+      if (output) {
+        setEmailResults({ sent: output.sent, failed: output.failed, errors: output.errors || [] })
+      }
+      setActiveEmailRun(null)
+      setSendingEmails(false)
+      window.localStorage.removeItem('activeEmailRun')
+
+      void (async () => {
+        try {
+          const emailLimitResponse = await fetch('/api/email-sender')
+          if (emailLimitResponse.ok) {
+            const emailLimitData = await emailLimitResponse.json()
+            setEmailLimitData(emailLimitData)
+          }
+        } catch (limitError) {
+          console.error('Failed to refresh email limit data:', limitError)
+        }
+      })()
+    } else if (
+      emailRun.status === 'FAILED' ||
+      emailRun.status === 'CANCELED' ||
+      emailRun.status === 'TIMED_OUT' ||
+      emailRun.status === 'CRASHED' ||
+      emailRun.status === 'SYSTEM_FAILURE' ||
+      emailRun.status === 'EXPIRED'
+    ) {
+      const message =
+        (emailRun as { error?: { message?: string } }).error?.message ||
+        `Email run ${emailRun.status.toLowerCase().replace(/_/g, ' ')}`
+      setEmailError(message)
+      setActiveEmailRun(null)
+      setSendingEmails(false)
+      window.localStorage.removeItem('activeEmailRun')
+    }
+  }, [emailRun, emailRunError, activeEmailRun])
 
   // Derived filtered + sorted contacts for the management view
   const filteredContacts = (() => {
@@ -751,72 +838,39 @@ export default function MassTextPage() {
       })
 
       if (!response.ok) {
-        throw new Error(`Server error (${response.status}): ${response.statusText}`)
+        const errBody = await response.json().catch(() => ({} as { message?: string }))
+        throw new Error(errBody.message || `Server error (${response.status}): ${response.statusText}`)
       }
 
-      // Handle Server-Sent Events
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error('No response stream available');
+      const data = (await response.json()) as {
+        runId?: string
+        publicAccessToken?: string
+        total?: number
       }
 
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          break;
-        }
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-
-              if (data.status === 'error') {
-                throw new Error(data.message);
-              }
-
-              setEmailProgress(data);
-
-              if (data.status === 'completed') {
-                setEmailResults({
-                  sent: data.sent,
-                  failed: data.failed,
-                  errors: [] // Errors are handled in the progress updates
-                });
-
-                // Refresh email limit data
-                try {
-                  const emailLimitResponse = await fetch('/api/email-sender')
-                  if (emailLimitResponse.ok) {
-                    const emailLimitData = await emailLimitResponse.json()
-                    setEmailLimitData(emailLimitData)
-                  }
-                } catch (limitError) {
-                  console.error('Failed to refresh email limit data:', limitError);
-                }
-              }
-            } catch (parseError) {
-              console.error('Failed to parse SSE data:', parseError);
-            }
-          }
-        }
+      if (!data.runId || !data.publicAccessToken) {
+        throw new Error('Failed to start email send: missing run id')
       }
+
+      const active = { runId: data.runId, token: data.publicAccessToken }
+      window.localStorage.setItem('activeEmailRun', JSON.stringify(active))
+      setActiveEmailRun(active)
+      setEmailProgress({
+        current: 0,
+        total: data.total ?? 0,
+        sent: 0,
+        failed: 0,
+        currentEmail: '',
+        estimatedTimeRemaining: 0,
+        currentBatch: 0,
+        totalBatches: 0,
+        status: 'sending',
+        message: 'Queuing email send...',
+      })
     } catch (error: unknown) {
       console.error('Error sending emails:', error)
-      let errorMessage = 'An error occurred while sending emails'
-
-      if (error instanceof Error) {
-        errorMessage = error.message
-      }
-
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred while sending emails'
       setEmailError(errorMessage)
-    } finally {
       setSendingEmails(false)
     }
   }

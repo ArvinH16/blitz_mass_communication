@@ -47,3 +47,4 @@ next-env.d.ts
 #
 tamid_backup.sql
 SQL_DATATABLE_STRUCTURE.md
+.trigger
