@@ -409,7 +409,7 @@ RESPOND WITH ONLY THIS JSON FORMAT (no other text):
 }`;
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       systemInstruction: "You are an expert email designer and copywriter. You help create beautiful, professional HTML email layouts. IMPORTANT: Always respond with ONLY valid JSON in the exact format specified. Do not include any explanations, markdown formatting, or additional text outside the JSON object.",
       generationConfig: {
         temperature: 0.7,
